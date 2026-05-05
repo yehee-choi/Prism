@@ -38,3 +38,19 @@ export async function collectAll(ticker: string, periodDays: number = 365): Prom
   const res = await fetch(`${BASE_URL}/stock/collect/${ticker}?period_days=${periodDays}`)
   return res.json()
 }
+
+// AI 인사이트 생성
+export async function generateInsight(metrics: any, role: string, dataType: string = 'unknown'): Promise<any> {
+  const res = await fetch(`${BASE_URL}/insight/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ metrics, role, data_type: dataType }),
+  })
+  return res.json()
+}
+
+// DART 공시 분석
+export async function fetchDartInsight(ticker: string): Promise<any> {
+  const res = await fetch(`${BASE_URL}/dart/insight/${ticker}`)
+  return res.json()
+}

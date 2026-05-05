@@ -1,55 +1,68 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { uploadFile, analyzeData, fetchStockOhlcv, fetchStockInvestor } from '../api'
 import Loading from '../components/common/Loading'
 import WarningBadge from '../components/common/WarningBadge'
+import InsightBox from '../components/common/InsightBox'
 import StockDashboard from '../components/dashboards/StockDashboard'
 import FinancialDashboard from '../components/dashboards/FinancialDashboard'
 import FundDashboard from '../components/dashboards/FundDashboard'
 import AnalystDashboard from '../components/dashboards/AnalystDashboard'
+import { uploadFile, analyzeData, fetchStockOhlcv, fetchStockInvestor, generateInsight, fetchDartInsight } from '../api'
+import DartInsight from '../components/common/DartInsight'
 
 type Role = 'stock' | 'fund' | 'financial' | 'analyst'
 
-const ROLE_LABELS: Record<Role, string> = {
-  stock: '주식 투자자',
-  fund: '펀드매니저',
-  financial: '회계/재무담당',
-  analyst: '애널리스트',
-}
-
-const ROLE_COLORS: Record<Role, string> = {
-  stock: '#6366F1',
-  fund: '#059669',
-  financial: '#D97706',
-  analyst: '#9333EA',
+const ROLE_CONFIG = {
+  stock: { label: 'Stock Investor', icon: 'trending_up', color: '#6366F1' },
+  fund: { label: 'Fund Manager', icon: 'leaderboard', color: '#25a475' },
+  financial: { label: 'Accountant', icon: 'account_balance', color: '#D97706' },
+  analyst: { label: 'Analyst', icon: 'query_stats', color: '#b66dff' },
 }
 
 export default function Dashboard() {
   const { role } = useParams()
   const navigate = useNavigate()
   const currentRole = (role as Role) || 'stock'
-  const color = ROLE_COLORS[currentRole]
+  const config = ROLE_CONFIG[currentRole]
 
   const [ticker, setTicker] = useState('')
   const [loading, setLoading] = useState(false)
+  const [insightLoading, setInsightLoading] = useState(false)
   const [uploadResult, setUploadResult] = useState<any>(null)
   const [analyzeResult, setAnalyzeResult] = useState<any>(null)
+  const [insight, setInsight] = useState('')
   const [ohlcv, setOhlcv] = useState<any[]>([])
   const [investorData, setInvestorData] = useState<any[]>([])
   const [warnings, setWarnings] = useState<any[]>([])
+  const [companyName, setCompanyName] = useState('')
+  const [dataType, setDataType] = useState('unknown')
+  const [dartData, setDartData] = useState<any>(null)
+  const [dartLoading, setDartLoading] = useState(false)
+
+  const fetchInsight = async (metrics: any, role: string, dt: string) => {
+    setInsightLoading(true)
+    try {
+      const result = await generateInsight(metrics, role, dt)
+      setInsight(result.insight || '')
+    } catch (e) { console.error(e) }
+    setInsightLoading(false)
+  }
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setLoading(true)
+    setInsight('')
     try {
       const result = await uploadFile(file)
       setUploadResult(result)
       setWarnings(result.warnings || [])
+      setDataType(result.data_type || 'unknown')
       if (result.success && result.data) {
         const analysis = await analyzeData(result.data, currentRole)
         setAnalyzeResult(analysis)
         if (result.data[0]?.close) setOhlcv(result.data)
+        await fetchInsight(analysis.metrics, currentRole, result.data_type)
       }
     } catch (e) { console.error(e) }
     setLoading(false)
@@ -58,12 +71,13 @@ export default function Dashboard() {
   const handleTicker = async () => {
     if (!ticker) return
     setLoading(true)
+    setInsight('')
     try {
       const today = new Date()
-      const end = today.toISOString().slice(0,10).replace(/-/g,'')
+      const end = today.toISOString().slice(0, 10).replace(/-/g, '')
       const prev = new Date(today)
       prev.setFullYear(prev.getFullYear() - 1)
-      const start = prev.toISOString().slice(0,10).replace(/-/g,'')
+      const start = prev.toISOString().slice(0, 10).replace(/-/g, '')
 
       const [ohlcvResult, investorResult] = await Promise.all([
         fetchStockOhlcv(ticker, start, end),
@@ -72,13 +86,21 @@ export default function Dashboard() {
 
       if (ohlcvResult.success && ohlcvResult.data) {
         setOhlcv(ohlcvResult.data)
+        setCompanyName(ticker)
+        setDataType('stock')
         const analysis = await analyzeData(ohlcvResult.data, currentRole)
         setAnalyzeResult(analysis)
+        await fetchInsight(analysis.metrics, currentRole, 'stock')
       }
       if (investorResult.success && investorResult.data) {
         setInvestorData(investorResult.data)
       }
       setWarnings([])
+      // DART 공시 분석
+      setDartLoading(true)
+      const dart = await fetchDartInsight(ticker)
+      setDartData(dart)
+      setDartLoading(false)
     } catch (e) { console.error(e) }
     setLoading(false)
   }
@@ -86,100 +108,153 @@ export default function Dashboard() {
   const renderDashboard = () => {
     if (!analyzeResult) return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <div className="text-6xl">📊</div>
-        <p className="text-[#64748B] text-sm">종목코드를 입력하거나 파일을 업로드해주세요</p>
+        <span className="material-symbols-outlined text-[80px] text-slate-700">query_stats</span>
+        <p className="text-slate-500 text-sm">종목코드를 입력하거나 파일을 업로드해주세요</p>
+        <p className="text-slate-600 text-xs">CSV · Excel · JSON 모든 형태 지원</p>
       </div>
     )
     const metrics = analyzeResult.metrics
-    switch (currentRole) {
-      case 'stock':
-        return <StockDashboard metrics={metrics} ohlcv={ohlcv} investorData={investorData} />
-      case 'fund':
-        return <FundDashboard metrics={metrics} ohlcv={ohlcv} />
-      case 'financial':
-        return <FinancialDashboard metrics={metrics} />
-      case 'analyst':
-        return <AnalystDashboard metrics={metrics} ohlcv={ohlcv} />
-      default:
-        return null
-    }
+    return (
+      <div className="flex flex-col gap-6">
+        {(() => {
+          switch (currentRole) {
+            case 'stock': return <StockDashboard metrics={metrics} ohlcv={ohlcv} investorData={investorData} />
+            case 'fund': return <FundDashboard metrics={metrics} ohlcv={ohlcv} />
+            case 'financial': return <FinancialDashboard metrics={metrics} />
+            case 'analyst': return <AnalystDashboard metrics={metrics} ohlcv={ohlcv} />
+            default: return null
+          }
+        })()}
+        <InsightBox insight={insight} loading={insightLoading} />
+        <DartInsight data={dartData} loading={dartLoading} />
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0C10] text-white">
-      <div className="border-b border-[#1E2230] px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="text-[#64748B] hover:text-white text-sm">
-            ← Prism
+    <div className="min-h-screen bg-[#13131b] text-[#e4e1ed]">
+      {/* 상단 헤더 - 로고 + 직군 탭만 */}
+      <header className="fixed top-0 w-full z-50 bg-slate-900/60 backdrop-blur-md border-b border-slate-800/50 shadow-2xl shadow-black/50">
+        <div className="flex items-center justify-between px-6 h-14">
+          <button onClick={() => navigate('/')}>
+            <img src="/logo.png" alt="Prism" className="h-8" />
           </button>
-          <div className="text-xs font-bold px-3 py-1 rounded-full"
-            style={{ background: color + '22', color }}>
-            {ROLE_LABELS[currentRole]}
+          <div className="flex items-center gap-3">
+            <button className="material-symbols-outlined text-slate-400 hover:text-white transition-colors">notifications</button>
+            <button className="material-symbols-outlined text-slate-400 hover:text-white transition-colors">settings</button>
+            <button className="material-symbols-outlined text-indigo-400">account_circle</button>
           </div>
         </div>
-        <span className="text-[#1E2230] text-xs font-mono">Skills.md v0.1</span>
-      </div>
+        {/* 직군 탭 */}
+        <div className="flex items-center px-6 border-t border-slate-800/50">
+          {(Object.entries(ROLE_CONFIG) as [Role, typeof ROLE_CONFIG[Role]][]).map(([r, c]) => (
+            <button key={r} onClick={() => navigate(`/dashboard/${r}`)}
+              className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all ${r === currentRole
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-300'
+                }`} style={{ fontFamily: 'Manrope' }}>
+              <span className="material-symbols-outlined text-sm">{c.icon}</span>
+              {c.label}
+            </button>
+          ))}
+          <div className="ml-auto">
+            <span className="text-[10px] text-slate-700 font-mono">Skills.md v0.1</span>
+          </div>
+        </div>
+      </header>
 
-      <div className="flex h-[calc(100vh-57px)]">
-        <div className="w-64 border-r border-[#1E2230] p-4 flex flex-col gap-4">
+      {/* 본문 - 좌측 입력 패널 + 우측 대시보드 */}
+      <div className="pt-[120px] flex min-h-screen">
+
+        {/* 좌측 입력 패널 (30%) */}
+        <div className="w-[20%] min-h-[calc(100vh-105px)] border-r border-slate-800 p-8 flex flex-col gap-8 bg-slate-900/30">
+
+          {/* 현재 직군 표시 */}
+          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4">
+            <p className="text-[11px] font-bold text-indigo-400 uppercase tracking-widest mb-2">Current Role</p>
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-2xl" style={{ color: config.color }}>{config.icon}</span>
+              <span className="text-lg font-bold text-white" style={{ fontFamily: 'Manrope' }}>{config.label}</span>
+            </div>
+          </div>
+
+          {/* 종목코드 입력 */}
           <div>
-            <p className="text-[#64748B] text-xs mb-2 uppercase tracking-wider">종목코드</p>
-            <div className="flex gap-2">
+            <p className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-3" style={{ fontFamily: 'Manrope' }}>
+              종목코드 입력
+            </p>
+            <div className="relative mb-3">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">search</span>
               <input
                 value={ticker}
                 onChange={e => setTicker(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleTicker()}
-                placeholder="005930"
-                className="flex-1 bg-[#111318] border border-[#1E2230] rounded-lg px-3 py-2 text-sm text-white placeholder-[#2E3648] focus:outline-none focus:border-[#6366F1]"
+                placeholder="005930, 000660..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-12 pr-4 py-4 text-base focus:border-indigo-500 focus:outline-none transition-all text-white placeholder:text-slate-600"
               />
-              <button onClick={handleTicker}
-                className="px-3 py-2 rounded-lg text-sm font-medium text-white"
-                style={{ background: color }}>
-                조회
-              </button>
             </div>
+            <button onClick={handleTicker}
+              className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-4 rounded-xl text-base transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
+              style={{ fontFamily: 'Manrope' }}>
+              조회
+            </button>
           </div>
 
+          {/* 구분선 */}
+          <div className="flex items-center gap-4">
+            <div className="flex-1 h-px bg-slate-800" />
+            <span className="text-slate-600 text-sm">또는</span>
+            <div className="flex-1 h-px bg-slate-800" />
+          </div>
+
+          {/* 파일 업로드 */}
           <div>
-            <p className="text-[#64748B] text-xs mb-2 uppercase tracking-wider">파일 업로드</p>
-            <label className="block w-full border border-dashed border-[#1E2230] rounded-lg p-4 text-center cursor-pointer hover:border-[#6366F1] transition-colors">
-              <p className="text-[#64748B] text-xs">CSV · Excel · JSON</p>
-              <p className="text-[#2E3648] text-xs mt-1">클릭하여 업로드</p>
-              <input type="file" accept=".csv,.xlsx,.xls,.json" onChange={handleFile} className="hidden" />
+            <p className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-3" style={{ fontFamily: 'Manrope' }}>
+              파일 업로드
+            </p>
+            <label className="block w-full border-2 border-dashed border-slate-700 rounded-xl p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors group">
+              <span className="material-symbols-outlined text-4xl text-slate-600 group-hover:text-indigo-400 transition-colors block mb-2">upload_file</span>
+              <p className="text-base text-slate-400 font-medium mb-1">클릭하여 파일 업로드</p>
+              <p className="text-sm text-slate-600">CSV · Excel · JSON</p>
+              <input type="file" accept=".csv,.xlsx,.xls,.json,.pdf" onChange={handleFile} className="hidden" />
             </label>
           </div>
 
+          {/* 파싱 결과 */}
           {uploadResult && (
-            <div className="border border-[#1E2230] rounded-lg p-3">
-              <p className="text-xs text-[#64748B] mb-1">파싱 결과</p>
-              <p className="text-xs text-white">{uploadResult.row_count}행 · {uploadResult.data_type}</p>
+            <div className="border border-slate-700 rounded-xl p-4 bg-slate-900/50">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">파싱 결과</p>
+              <p className="text-base text-white font-mono mb-1">{uploadResult.row_count}행 · {uploadResult.data_type}</p>
+              {uploadResult.ai_mapped_columns && Object.keys(uploadResult.ai_mapped_columns).length > 0 && (
+                <p className="text-sm text-indigo-400">✨ AI 매핑 {Object.keys(uploadResult.ai_mapped_columns).length}개 컬럼</p>
+              )}
               {warnings.map((w: any, i: number) => (
-                <div key={i} className="mt-1">
-                  <WarningBadge level={w.level} msg={w.msg} />
-                </div>
+                <div key={i} className="mt-2"><WarningBadge level={w.level} msg={w.msg} /></div>
               ))}
             </div>
           )}
 
-          <div className="mt-auto">
-            <p className="text-[#64748B] text-xs mb-2 uppercase tracking-wider">직군 전환</p>
-            {(['stock','fund','financial','analyst'] as Role[]).map(r => (
-              <button key={r} onClick={() => navigate(`/dashboard/${r}`)}
-                className="w-full text-left px-3 py-2 rounded-lg text-xs mb-1 transition-colors"
-                style={{
-                  background: r === currentRole ? color + '22' : 'transparent',
-                  color: r === currentRole ? color : '#64748B',
-                }}>
-                {ROLE_LABELS[r]}
-              </button>
-            ))}
-          </div>
+          {/* 조회 결과 정보 */}
+          {companyName && (
+            <div className="border border-slate-700 rounded-xl p-4 bg-slate-900/50">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">조회 종목</p>
+              <p className="text-xl font-bold text-white font-mono">{companyName}</p>
+              <p className="text-sm text-indigo-400 mt-1">KRX Live Data</p>
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* 우측 대시보드 (70%) */}
+        <div className="flex-1 p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
           {loading ? <Loading /> : renderDashboard()}
         </div>
       </div>
+
+      {/* FAB */}
+      <label className="fixed bottom-8 right-8 w-14 h-14 bg-indigo-500 rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all z-50 cursor-pointer">
+        <span className="material-symbols-outlined text-3xl">add</span>
+        <input type="file" accept=".csv,.xlsx,.xls,.json,.pdf" onChange={handleFile} className="hidden" />
+      </label>
     </div>
   )
 }
