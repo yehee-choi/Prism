@@ -71,3 +71,4 @@ xmltodict==1.0.4
 yaspin==3.3.0
 zipp==3.23.1
 zope.interface==8.0.1
+setuptools
