@@ -1,17 +1,22 @@
 import os
 import json
-import dart_fss as dart
 import anthropic
 from dotenv import load_dotenv
 
 load_dotenv()
 
-dart.set_api_key(os.getenv("DART_API_KEY"))
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+
+def _get_dart():
+    import dart_fss as dart
+    dart.set_api_key(os.getenv("DART_API_KEY"))
+    return dart
 
 
 def get_recent_disclosures(corp_code: str, limit: int = 5) -> list:
     try:
+        dart = _get_dart()
         filings = dart.filings.search(
             corp_code=corp_code,
             bgn_de='20240101',
@@ -19,7 +24,6 @@ def get_recent_disclosures(corp_code: str, limit: int = 5) -> list:
         )
         if filings is None or len(filings.report_list) == 0:
             return []
-
         results = []
         for item in filings.report_list[:limit]:
             results.append({
@@ -79,6 +83,7 @@ def summarize_disclosures_with_claude(ticker: str, corp_name: str, disclosures: 
 
 def get_dart_insight(ticker: str) -> dict:
     try:
+        dart = _get_dart()
         corp_list = dart.get_corp_list()
         corp = corp_list.find_by_stock_code(ticker)
         if corp is None:
