@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8000'
+const BASE_URL = 'https://prism-production-fee9.up.railway.app'
 
 // 파일 업로드
 export async function uploadFile(file: File): Promise<any> {
