@@ -35,7 +35,6 @@ export default function Dashboard() {
   const [investorData, setInvestorData] = useState<any[]>([])
   const [warnings, setWarnings] = useState<any[]>([])
   const [companyName, setCompanyName] = useState('')
-  const [dataType, setDataType] = useState('unknown')
   const [dartData, setDartData] = useState<any>(null)
   const [dartLoading, setDartLoading] = useState(false)
 
@@ -57,7 +56,6 @@ export default function Dashboard() {
       const result = await uploadFile(file)
       setUploadResult(result)
       setWarnings(result.warnings || [])
-      setDataType(result.data_type || 'unknown')
       if (result.success && result.data) {
         const analysis = await analyzeData(result.data, currentRole)
         setAnalyzeResult(analysis)
@@ -87,7 +85,6 @@ export default function Dashboard() {
       if (ohlcvResult.success && ohlcvResult.data) {
         setOhlcv(ohlcvResult.data)
         setCompanyName(ticker)
-        setDataType('stock')
         const analysis = await analyzeData(ohlcvResult.data, currentRole)
         setAnalyzeResult(analysis)
         await fetchInsight(analysis.metrics, currentRole, 'stock')
