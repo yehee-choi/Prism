@@ -9,8 +9,15 @@ interface Props {
 export default function FinancialDashboard({ metrics }: Props) {
   const valuation = metrics?.valuation
   const credit = metrics?.credit_risk
+  const cashflow = metrics?.cashflow  // 추가
 
   const warnings: string[] = credit?.warnings ?? []
+
+  // CCC 경고 추가
+  if (cashflow?.ccc !== undefined && cashflow.ccc > 90) {
+    warnings.push(`CCC ${cashflow.ccc.toFixed(1)}일 — 운전자본 회수 지연`)
+  }
+
   const score = Math.min(100, warnings.length * 35)
 
   return (
@@ -51,6 +58,46 @@ export default function FinancialDashboard({ metrics }: Props) {
             positive={valuation.roe > 0} />
         )}
       </div>
+
+      {/* 현금흐름 지표 — cashflow 데이터 추가 */}
+      {cashflow && (
+        <div className="flex flex-col gap-3">
+          <p className="text-[#E2E8F0] text-sm font-medium">현금흐름 지표</p>
+          <div className="grid grid-cols-4 gap-4">
+            {cashflow.ocf !== undefined && (
+              <KpiCard
+                label="OCF"
+                value={
+                  cashflow.ocf >= 1_000_000
+                    ? `${(cashflow.ocf / 1_000_000).toFixed(1)}조`
+                    : cashflow.ocf >= 1_000
+                    ? `${(cashflow.ocf / 1_000).toFixed(1)}억`
+                    : `${cashflow.ocf.toFixed(0)}백만`
+                }
+                positive={cashflow.ocf > 0}
+                sub="영업현금흐름"
+              />
+            )}
+            {cashflow.ccc !== undefined && (
+              <KpiCard
+                label="CCC"
+                value={`${cashflow.ccc.toFixed(1)}일`}
+                positive={cashflow.ccc <= 90}
+                color={cashflow.ccc > 90 ? '#F59E0B' : undefined}
+                sub={cashflow.ccc > 90 ? '⚠️ 기준 90일 초과' : '기준 90일 이하'}
+              />
+            )}
+            {cashflow.dpo !== undefined && (
+              <KpiCard
+                label="DPO"
+                value={`${cashflow.dpo.toFixed(1)}일`}
+                positive={cashflow.dpo >= 30}
+                sub="기준 30일 이상"
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <RiskScore

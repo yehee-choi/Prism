@@ -10,6 +10,7 @@ export default function AnalystDashboard({ metrics, ohlcv }: Props) {
   const returns = metrics?.returns
   const risk = metrics?.risk
   const valuation = metrics?.valuation
+  const targetPrice = metrics?.target_price  // 추가
 
   return (
     <div className="flex flex-col gap-6">
@@ -29,6 +30,76 @@ export default function AnalystDashboard({ metrics, ohlcv }: Props) {
           <KpiCard label="영업이익률" value={`${valuation.operating_margin.toFixed(1)}%`} positive={valuation.operating_margin > 0} />
         )}
       </div>
+
+      {/* 목표주가 & 투자의견 — target_price 데이터 추가 */}
+      {targetPrice && (
+        <div className="flex flex-col gap-3">
+          <p className="text-[#E2E8F0] text-sm font-medium">목표주가 · 투자의견</p>
+          <div className="grid grid-cols-4 gap-4">
+            {targetPrice.target_price !== undefined && (
+              <KpiCard
+                label="목표주가"
+                value={`${targetPrice.target_price.toLocaleString()}원`}
+                positive={targetPrice.upside > 0}
+              />
+            )}
+            {targetPrice.current_per !== undefined && (
+              <KpiCard
+                label="현재 PER"
+                value={`${targetPrice.current_per.toFixed(1)}x`}
+                positive={targetPrice.current_per > 0}
+                sub="배수"
+              />
+            )}
+            {targetPrice.upside !== undefined && (
+              <KpiCard
+                label="상승여력"
+                value={`${targetPrice.upside.toFixed(1)}%`}
+                positive={targetPrice.upside > 0}
+                color={targetPrice.upside >= 20 ? '#10B981' : targetPrice.upside < 0 ? '#EF4444' : undefined}
+                sub={targetPrice.upside >= 20 ? '강력 매수 구간' : targetPrice.upside < 0 ? '하락 위험' : undefined}
+              />
+            )}
+            {targetPrice.opinion !== undefined && (
+              <KpiCard
+                label="투자의견"
+                value={targetPrice.opinion}
+                positive={['매수', 'BUY', '적극매수'].includes(targetPrice.opinion)}
+                color={
+                  ['매수', 'BUY', '적극매수'].includes(targetPrice.opinion) ? '#10B981'
+                  : ['중립', 'HOLD', '보유'].includes(targetPrice.opinion) ? '#F59E0B'
+                  : '#EF4444'
+                }
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 추가 밸류에이션 멀티플 — valuation 확장 */}
+      {(valuation?.ev_ebitda !== undefined || valuation?.psr !== undefined) && (
+        <div className="flex flex-col gap-3">
+          <p className="text-[#E2E8F0] text-sm font-medium">밸류에이션 멀티플</p>
+          <div className="grid grid-cols-4 gap-4">
+            {valuation.ev_ebitda !== undefined && (
+              <KpiCard
+                label="EV/EBITDA"
+                value={`${valuation.ev_ebitda.toFixed(1)}x`}
+                sub="기준 10x 이하"
+                positive={valuation.ev_ebitda <= 10}
+              />
+            )}
+            {valuation.psr !== undefined && (
+              <KpiCard
+                label="PSR"
+                value={`${valuation.psr.toFixed(2)}x`}
+                sub="기준 1x 이하"
+                positive={valuation.psr <= 1}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 밸류에이션 섹션 */}
       <div className="bg-[#111318] border border-[#1E2230] rounded-xl p-4">
