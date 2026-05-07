@@ -9,11 +9,10 @@ interface Props {
 export default function FinancialDashboard({ metrics }: Props) {
   const valuation = metrics?.valuation
   const credit = metrics?.credit_risk
-  const cashflow = metrics?.cashflow  // 추가
+  const cashflow = metrics?.cashflow
 
   const warnings: string[] = credit?.warnings ?? []
 
-  // CCC 경고 추가
   if (cashflow?.ccc !== undefined && cashflow.ccc > 90) {
     warnings.push(`CCC ${cashflow.ccc.toFixed(1)}일 — 운전자본 회수 지연`)
   }
@@ -59,10 +58,10 @@ export default function FinancialDashboard({ metrics }: Props) {
         )}
       </div>
 
-      {/* 현금흐름 지표 — cashflow 데이터 추가 */}
+      {/* 현금흐름 지표 */}
       {cashflow && (
         <div className="flex flex-col gap-3">
-          <p className="text-[#E2E8F0] text-sm font-medium">현금흐름 지표</p>
+          <p className="text-[#1b1b23] text-sm font-medium">현금흐름 지표</p>
           <div className="grid grid-cols-4 gap-4">
             {cashflow.ocf !== undefined && (
               <KpiCard
@@ -105,13 +104,13 @@ export default function FinancialDashboard({ metrics }: Props) {
           score={score}
           warnings={warnings}
         />
-        <div className="bg-[#111318] border border-[#1E2230] rounded-xl p-4">
-          <p className="text-[#E2E8F0] text-sm font-medium mb-3">PE 대주주 리스크</p>
+        <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
+          <p className="text-[#1b1b23] text-sm font-medium mb-3">PE 대주주 리스크</p>
           <div className="flex items-center gap-3">
             <div className="w-3 h-3 rounded-full bg-[#10B981]" />
-            <p className="text-xs text-[#64748B]">종목코드 조회 시 DART 공시 자동 분석</p>
+            <p className="text-xs text-[#767586]">종목코드 조회 시 DART 공시 자동 분석</p>
           </div>
-          <p className="text-xs text-[#2E3648] mt-2">
+          <p className="text-xs text-[#c7c4d7] mt-2">
             사모펀드 · PEF · 인베스트먼트 키워드 감지
           </p>
         </div>

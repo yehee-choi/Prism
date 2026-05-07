@@ -22,24 +22,24 @@ export default function StockChart({ data }: Props) {
   const options: ApexCharts.ApexOptions = {
     chart: {
       type: 'candlestick',
-      background: '#111318',
+      background: '#ffffff',
       toolbar: { show: false },
-      foreColor: '#64748B',
+      foreColor: '#767586',
     },
     title: {
       text: '주가 차트',
-      style: { color: '#E2E8F0', fontSize: '14px' },
+      style: { color: '#1b1b23', fontSize: '14px' },
     },
     xaxis: {
       type: 'datetime',
-      labels: { style: { colors: '#64748B' } },
-      axisBorder: { color: '#1E2230' },
+      labels: { style: { colors: '#767586' } },
+      axisBorder: { color: '#c7c4d7' },
     },
     yaxis: {
       tooltip: { enabled: true },
-      labels: { style: { colors: '#64748B' } },
+      labels: { style: { colors: '#767586' } },
     },
-    grid: { borderColor: '#1E2230' },
+    grid: { borderColor: '#c7c4d7' },
     plotOptions: {
       candlestick: {
         colors: {
@@ -49,40 +49,40 @@ export default function StockChart({ data }: Props) {
       },
     },
     tooltip: {
-      theme: 'dark',
+      theme: 'light',
     },
   }
 
   const volumeOptions: ApexCharts.ApexOptions = {
     chart: {
       type: 'bar',
-      background: '#111318',
+      background: '#ffffff',
       toolbar: { show: false },
-      foreColor: '#64748B',
+      foreColor: '#767586',
     },
     xaxis: {
       type: 'datetime',
-      labels: { style: { colors: '#64748B' } },
-      axisBorder: { color: '#1E2230' },
+      labels: { style: { colors: '#767586' } },
+      axisBorder: { color: '#c7c4d7' },
     },
     yaxis: {
       labels: {
-        style: { colors: '#64748B' },
+        style: { colors: '#767586' },
         formatter: (v) => `${(v / 1000000).toFixed(0)}M`,
       },
     },
-    grid: { borderColor: '#1E2230' },
-    colors: ['#6366F1'],
-    tooltip: { theme: 'dark' },
+    grid: { borderColor: '#c7c4d7' },
+    colors: ['#4648d4'],
+    tooltip: { theme: 'light' },
     title: {
       text: '거래량',
-      style: { color: '#E2E8F0', fontSize: '14px' },
+      style: { color: '#1b1b23', fontSize: '14px' },
     },
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-[#111318] border border-[#1E2230] rounded-xl p-4">
+      <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
         <ReactApexChart
           type="candlestick"
           series={[{ data: candleData }]}
@@ -91,7 +91,7 @@ export default function StockChart({ data }: Props) {
         />
       </div>
       {volumeData.length > 0 && (
-        <div className="bg-[#111318] border border-[#1E2230] rounded-xl p-4">
+        <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
           <ReactApexChart
             type="bar"
             series={[{ name: '거래량', data: volumeData }]}

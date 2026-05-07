@@ -46,11 +46,11 @@ export default function StockDashboard({ metrics, ohlcv, investorData }: Props) 
       </div>
       <div className="grid grid-cols-2 gap-4">
         <RiskScore title="종합 리스크 스코어" score={riskScore} warnings={warnings} />
-        <div className="bg-[#111318] border border-[#1E2230] rounded-xl p-4">
-          <p className="text-[#64748B] text-xs mb-3">VaR (95%)</p>
+        <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
+          <p className="text-[#767586] text-xs mb-3">VaR (95%)</p>
           {risk?.var_95 !== undefined && <>
             <p className="text-2xl font-bold text-[#3B82F6]">{(risk.var_95 * 100).toFixed(2)}%</p>
-            <p className="text-xs text-[#64748B] mt-1">하루 최대 손실 예상 (95% 신뢰구간)</p>
+            <p className="text-xs text-[#767586] mt-1">하루 최대 손실 예상 (95% 신뢰구간)</p>
           </>}
         </div>
       </div>

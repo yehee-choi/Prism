@@ -10,7 +10,7 @@ export default function AnalystDashboard({ metrics, ohlcv }: Props) {
   const returns = metrics?.returns
   const risk = metrics?.risk
   const valuation = metrics?.valuation
-  const targetPrice = metrics?.target_price  // 추가
+  const targetPrice = metrics?.target_price
 
   return (
     <div className="flex flex-col gap-6">
@@ -31,10 +31,10 @@ export default function AnalystDashboard({ metrics, ohlcv }: Props) {
         )}
       </div>
 
-      {/* 목표주가 & 투자의견 — target_price 데이터 추가 */}
+      {/* 목표주가 & 투자의견 */}
       {targetPrice && (
         <div className="flex flex-col gap-3">
-          <p className="text-[#E2E8F0] text-sm font-medium">목표주가 · 투자의견</p>
+          <p className="text-[#1b1b23] text-sm font-medium">목표주가 · 투자의견</p>
           <div className="grid grid-cols-4 gap-4">
             {targetPrice.target_price !== undefined && (
               <KpiCard
@@ -76,10 +76,10 @@ export default function AnalystDashboard({ metrics, ohlcv }: Props) {
         </div>
       )}
 
-      {/* 추가 밸류에이션 멀티플 — valuation 확장 */}
+      {/* 추가 밸류에이션 멀티플 */}
       {(valuation?.ev_ebitda !== undefined || valuation?.psr !== undefined) && (
         <div className="flex flex-col gap-3">
-          <p className="text-[#E2E8F0] text-sm font-medium">밸류에이션 멀티플</p>
+          <p className="text-[#1b1b23] text-sm font-medium">밸류에이션 멀티플</p>
           <div className="grid grid-cols-4 gap-4">
             {valuation.ev_ebitda !== undefined && (
               <KpiCard
@@ -102,20 +102,20 @@ export default function AnalystDashboard({ metrics, ohlcv }: Props) {
       )}
 
       {/* 밸류에이션 섹션 */}
-      <div className="bg-[#111318] border border-[#1E2230] rounded-xl p-4">
-        <p className="text-[#E2E8F0] text-sm font-medium mb-3">밸류에이션 분석</p>
+      <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
+        <p className="text-[#1b1b23] text-sm font-medium mb-3">밸류에이션 분석</p>
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <p className="text-xs text-[#64748B] mb-1">PER 밴드</p>
-            <p className="text-xs text-[#2E3648]">재무제표 파일 업로드 시 자동 산출</p>
+            <p className="text-xs text-[#767586] mb-1">PER 밴드</p>
+            <p className="text-xs text-[#c7c4d7]">재무제표 파일 업로드 시 자동 산출</p>
           </div>
           <div>
-            <p className="text-xs text-[#64748B] mb-1">PBR 밴드</p>
-            <p className="text-xs text-[#2E3648]">과거 5년 밴드 vs 현재 위치</p>
+            <p className="text-xs text-[#767586] mb-1">PBR 밴드</p>
+            <p className="text-xs text-[#c7c4d7]">과거 5년 밴드 vs 현재 위치</p>
           </div>
           <div>
-            <p className="text-xs text-[#64748B] mb-1">컨센서스 EPS</p>
-            <p className="text-xs text-[#2E3648]">리비전 추이 자동 감지</p>
+            <p className="text-xs text-[#767586] mb-1">컨센서스 EPS</p>
+            <p className="text-xs text-[#c7c4d7]">리비전 추이 자동 감지</p>
           </div>
         </div>
       </div>

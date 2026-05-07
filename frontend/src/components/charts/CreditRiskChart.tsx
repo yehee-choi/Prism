@@ -18,8 +18,8 @@ export default function CreditRiskChart({ currentRatio, interestCoverage, dso, d
   if (indicators.length === 0) return null
 
   return (
-    <div className="bg-[#111318] border border-[#1E2230] rounded-xl p-4">
-      <p className="text-[#E2E8F0] text-sm font-medium mb-4">신용 위험 지표</p>
+    <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
+      <p className="text-[#1b1b23] text-sm font-medium mb-4">신용 위험 지표</p>
       <div className="flex flex-col gap-4">
         {indicators.map((ind, i) => {
           const isDanger = ind.danger(ind.value!)
@@ -27,15 +27,15 @@ export default function CreditRiskChart({ currentRatio, interestCoverage, dso, d
           return (
             <div key={i}>
               <div className="flex justify-between mb-1">
-                <span className="text-xs text-[#64748B]">{ind.name}</span>
+                <span className="text-xs text-[#767586]">{ind.name}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold" style={{ color }}>
                     {ind.value!.toFixed(1)}{ind.unit}
                   </span>
-                  <span className="text-xs text-[#2E3648]">기준 {ind.benchmark}{ind.unit}</span>
+                  <span className="text-xs text-[#c7c4d7]">기준 {ind.benchmark}{ind.unit}</span>
                 </div>
               </div>
-              <div className="w-full bg-[#1E2230] rounded-full h-1.5">
+              <div className="w-full bg-[#f5f2fe] rounded-full h-1.5">
                 <div
                   className="h-1.5 rounded-full"
                   style={{
