@@ -67,8 +67,8 @@ export default function AnalystDashboard({ metrics, ohlcv }: Props) {
                 positive={['매수', 'BUY', '적극매수'].includes(targetPrice.opinion)}
                 color={
                   ['매수', 'BUY', '적극매수'].includes(targetPrice.opinion) ? '#10B981'
-                  : ['중립', 'HOLD', '보유'].includes(targetPrice.opinion) ? '#F59E0B'
-                  : '#EF4444'
+                    : ['중립', 'HOLD', '보유'].includes(targetPrice.opinion) ? '#F59E0B'
+                      : '#EF4444'
                 }
               />
             )}
@@ -107,15 +107,27 @@ export default function AnalystDashboard({ metrics, ohlcv }: Props) {
         <div className="grid grid-cols-3 gap-4">
           <div>
             <p className="text-xs text-[#767586] mb-1">PER 밴드</p>
-            <p className="text-xs text-[#c7c4d7]">재무제표 파일 업로드 시 자동 산출</p>
+            {valuation?.per !== undefined ? (
+              <p className="text-sm font-bold text-[#1b1b23]">{valuation.per.toFixed(1)}x</p>
+            ) : (
+              <p className="text-xs text-[#c7c4d7]">재무제표 파일 업로드 시 자동 산출</p>
+            )}
           </div>
           <div>
             <p className="text-xs text-[#767586] mb-1">PBR 밴드</p>
-            <p className="text-xs text-[#c7c4d7]">과거 5년 밴드 vs 현재 위치</p>
+            {valuation?.pbr !== undefined ? (
+              <p className="text-sm font-bold text-[#1b1b23]">{valuation.pbr.toFixed(2)}x</p>
+            ) : (
+              <p className="text-xs text-[#c7c4d7]">과거 5년 밴드 vs 현재 위치</p>
+            )}
           </div>
           <div>
             <p className="text-xs text-[#767586] mb-1">컨센서스 EPS</p>
-            <p className="text-xs text-[#c7c4d7]">리비전 추이 자동 감지</p>
+            {valuation?.eps !== undefined ? (
+              <p className="text-sm font-bold text-[#1b1b23]">{valuation.eps.toLocaleString()}원</p>
+            ) : (
+              <p className="text-xs text-[#c7c4d7]">리비전 추이 자동 감지</p>
+            )}
           </div>
         </div>
       </div>

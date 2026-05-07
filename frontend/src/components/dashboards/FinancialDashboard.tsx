@@ -3,7 +3,8 @@ import CreditRiskChart from '../charts/CreditRiskChart'
 import RiskScore from '../common/RiskScore'
 
 interface Props {
-  metrics: any
+  metrics: any,
+  dartData?: any
 }
 
 export default function FinancialDashboard({ metrics }: Props) {
@@ -70,8 +71,8 @@ export default function FinancialDashboard({ metrics }: Props) {
                   cashflow.ocf >= 1_000_000
                     ? `${(cashflow.ocf / 1_000_000).toFixed(1)}조`
                     : cashflow.ocf >= 1_000
-                    ? `${(cashflow.ocf / 1_000).toFixed(1)}억`
-                    : `${cashflow.ocf.toFixed(0)}백만`
+                      ? `${(cashflow.ocf / 1_000).toFixed(1)}억`
+                      : `${cashflow.ocf.toFixed(0)}백만`
                 }
                 positive={cashflow.ocf > 0}
                 sub="영업현금흐름"
@@ -106,13 +107,28 @@ export default function FinancialDashboard({ metrics }: Props) {
         />
         <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
           <p className="text-[#1b1b23] text-sm font-medium mb-3">PE 대주주 리스크</p>
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 rounded-full bg-[#10B981]" />
-            <p className="text-xs text-[#767586]">종목코드 조회 시 DART 공시 자동 분석</p>
-          </div>
-          <p className="text-xs text-[#c7c4d7] mt-2">
-            사모펀드 · PEF · 인베스트먼트 키워드 감지
-          </p>
+          {dartData?.pe_detected ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-[#EF4444]" />
+                <p className="text-xs text-[#EF4444] font-bold">PE 대주주 감지 — 엑시트 리스크 주의</p>
+              </div>
+              {dartData.pe_keywords?.map((kw: string, i: number) => (
+                <p key={i} className="text-xs text-[#767586] ml-6">· {kw}</p>
+              ))}
+            </div>
+          ) : dartData?.success ? (
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-[#10B981]" />
+              <p className="text-xs text-[#767586]">PE 대주주 미감지 — 정상</p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-[#c7c4d7]" />
+              <p className="text-xs text-[#767586]">종목코드 조회 시 DART 공시 자동 분석</p>
+            </div>
+          )}
+          <p className="text-xs text-[#c7c4d7] mt-2">사모펀드 · PEF · 인베스트먼트 키워드 감지</p>
         </div>
       </div>
 

@@ -42,9 +42,13 @@ export default function Dashboard() {
   const { exportPdf } = usePdfExport()
   const [exporting, setExporting] = useState(false)
 
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+
   const handleExportPdf = async () => {
     setExporting(true)
-    await exportPdf('dashboard-content', `prism-${currentRole}`)
+    const label = companyName || ticker || currentRole
+    await exportPdf('dashboard-content', `prism-${currentRole}-${label}`)
     setExporting(false)
   }
   const fetchInsight = async (metrics: any, role: string, dt: string) => {
@@ -126,7 +130,7 @@ export default function Dashboard() {
           switch (currentRole) {
             case 'stock': return <StockDashboard metrics={metrics} ohlcv={ohlcv} investorData={investorData} />
             case 'fund': return <FundDashboard metrics={metrics} ohlcv={ohlcv} />
-            case 'financial': return <FinancialDashboard metrics={metrics} />
+            case 'financial': return <FinancialDashboard metrics={metrics} dartData={dartData} />
             case 'analyst': return <AnalystDashboard metrics={metrics} ohlcv={ohlcv} />
             default: return null
           }
@@ -146,7 +150,26 @@ export default function Dashboard() {
             <img src="/logo.png" alt="Prism" className="h-8" />
           </button>
           <div className="flex items-center gap-3">
-            <button className="material-symbols-outlined text-[#464554] hover:text-[#1b1b23] transition-colors">notifications</button>
+            {/* notifications 버튼 */}
+            <div className="relative">
+              <button
+                onClick={() => { setShowNotifications(v => !v); setShowSettings(false) }}
+                className="material-symbols-outlined text-[#464554] hover:text-[#1b1b23] transition-colors"
+              >notifications</button>
+              {showNotifications && (
+                <div className="absolute right-0 top-10 w-72 bg-white border border-[#c7c4d7] rounded-xl shadow-xl z-50 p-4">
+                  <p className="text-xs font-bold text-[#1b1b23] uppercase tracking-widest mb-3">알림</p>
+                  {warnings.length > 0 ? warnings.map((w: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 py-2 border-b border-[#c7c4d7] last:border-0">
+                      <span className="material-symbols-outlined text-[#D97706] text-sm mt-0.5">warning</span>
+                      <p className="text-xs text-[#464554]">{w.msg}</p>
+                    </div>
+                  )) : (
+                    <p className="text-xs text-[#767586]">새 알림이 없습니다</p>
+                  )}
+                </div>
+              )}
+            </div>
             {analyzeResult && (
               <button
                 onClick={handleExportPdf}
@@ -158,7 +181,36 @@ export default function Dashboard() {
                 {exporting ? '생성 중...' : 'PDF 내보내기'}
               </button>
             )}
-            <button className="material-symbols-outlined text-[#464554] hover:text-[#1b1b23] transition-colors">settings</button>
+            {/* settings 버튼 */}
+            <div className="relative">
+              <button
+                onClick={() => { setShowSettings(v => !v); setShowNotifications(false) }}
+                className="material-symbols-outlined text-[#464554] hover:text-[#1b1b23] transition-colors"
+              >settings</button>
+              {showSettings && (
+                <div className="absolute right-0 top-10 w-64 bg-white border border-[#c7c4d7] rounded-xl shadow-xl z-50 p-4">
+                  <p className="text-xs font-bold text-[#1b1b23] uppercase tracking-widest mb-3">설정</p>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-[#464554]">무위험수익률</p>
+                      <span className="text-xs font-bold text-[#4648d4]">3.5%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-[#464554]">연율화 기준</p>
+                      <span className="text-xs font-bold text-[#4648d4]">252일</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-[#464554]">금액 단위</p>
+                      <span className="text-xs font-bold text-[#4648d4]">억원</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-[#464554]">색상 기준</p>
+                      <span className="text-xs font-bold text-[#4648d4]">한국 (상승=적색)</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             <button className="material-symbols-outlined text-[#4648d4]">account_circle</button>
           </div>
         </div>

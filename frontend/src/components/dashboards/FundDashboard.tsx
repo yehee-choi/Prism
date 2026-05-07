@@ -57,7 +57,19 @@ export default function FundDashboard({ metrics, ohlcv }: Props) {
           <p className="text-xs text-[#10B981]">✅ 위험 신호 없음</p>
         )}
         <div className="mt-3 pt-3 border-t border-[#c7c4d7]">
-          <p className="text-xs text-[#767586]">단일 종목 편입 한도 15% 초과 감지 · BM 대비 초과수익 추이</p>
+          {portfolioRisk?.max_weight !== undefined ? (
+            portfolioRisk.max_weight > 0.15 ? (
+              <p className="text-xs text-[#EF4444] font-bold">
+                ⚠️ 단일 종목 최대 편입 비중 {(portfolioRisk.max_weight * 100).toFixed(1)}% — 15% 한도 초과
+              </p>
+            ) : (
+              <p className="text-xs text-[#10B981]">
+                ✅ 단일 종목 편입 비중 {(portfolioRisk.max_weight * 100).toFixed(1)}% — 한도 내
+              </p>
+            )
+          ) : (
+            <p className="text-xs text-[#767586]">단일 종목 편입 한도 15% 초과 감지 · BM 대비 초과수익 추이</p>
+          )}
         </div>
       </div>
 
