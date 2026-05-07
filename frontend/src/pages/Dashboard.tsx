@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { usePdfExport } from '../hooks/usePdfExport'
 import { useParams, useNavigate } from 'react-router-dom'
 import Loading from '../components/common/Loading'
 import WarningBadge from '../components/common/WarningBadge'
@@ -38,6 +39,14 @@ export default function Dashboard() {
   const [dartData, setDartData] = useState<any>(null)
   const [dartLoading, setDartLoading] = useState(false)
 
+  const { exportPdf } = usePdfExport()
+  const [exporting, setExporting] = useState(false)
+
+  const handleExportPdf = async () => {
+    setExporting(true)
+    await exportPdf('dashboard-content', `prism-${currentRole}`)
+    setExporting(false)
+  }
   const fetchInsight = async (metrics: any, role: string, dt: string) => {
     setInsightLoading(true)
     try {
@@ -138,6 +147,17 @@ export default function Dashboard() {
           </button>
           <div className="flex items-center gap-3">
             <button className="material-symbols-outlined text-[#464554] hover:text-[#1b1b23] transition-colors">notifications</button>
+            {analyzeResult && (
+              <button
+                onClick={handleExportPdf}
+                disabled={exporting}
+                className="flex items-center gap-1 px-3 py-1.5 bg-[#4648d4] text-white text-xs font-bold rounded-lg hover:bg-[#2f2ebe] transition-all disabled:opacity-50"
+                style={{ fontFamily: 'Manrope' }}
+              >
+                <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
+                {exporting ? '생성 중...' : 'PDF 내보내기'}
+              </button>
+            )}
             <button className="material-symbols-outlined text-[#464554] hover:text-[#1b1b23] transition-colors">settings</button>
             <button className="material-symbols-outlined text-[#4648d4]">account_circle</button>
           </div>
@@ -242,7 +262,7 @@ export default function Dashboard() {
         </div>
 
         {/* 우측 대시보드 (70%) */}
-        <div className="flex-1 p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
+        <div id="dashboard-content" className="flex-1 p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
           {loading ? <Loading /> : renderDashboard()}
         </div>
       </div>
