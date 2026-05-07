@@ -286,7 +286,7 @@ export default function Dashboard() {
                 className="w-full bg-[#f5f2fe] border border-[#c7c4d7] rounded-xl pl-12 pr-4 py-4 text-base focus:border-[#4648d4] focus:outline-none transition-all text-[#1b1b23] placeholder:text-[#767586]"
               />
             </div>
-            <button onClick={handleTicker}
+            <button onClick={() => handleTicker()}
               className="w-full bg-[#4648d4] hover:bg-[#2f2ebe] text-white font-bold py-4 rounded-xl text-base transition-all active:scale-95 shadow-lg shadow-[#4648d4]/20"
               style={{ fontFamily: 'Manrope' }}>
               조회
@@ -303,7 +303,7 @@ export default function Dashboard() {
             ].map(stock => (
               <button
                 key={stock.code}
-                onClick={() => { setTicker(stock.code); handleTicker() }}
+                onClick={() => handleTicker(stock.code)}
                 className="px-3 py-1.5 bg-[#f5f2fe] border border-[#c7c4d7] rounded-lg text-xs text-[#464554] hover:border-[#4648d4] hover:text-[#4648d4] transition-all"
                 style={{ fontFamily: 'Manrope' }}
               >
