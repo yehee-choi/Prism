@@ -2,8 +2,10 @@ import { useCallback } from 'react'
 
 export function usePdfExport() {
   const exportPdf = useCallback(async (elementId: string, filename: string = 'prism-report') => {
-    const html2canvas = (await import('html2canvas')).default
-    const jsPDF = (await import('jspdf')).default
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const html2canvas = (await import('html2canvas' as any)).default
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { jsPDF } = await import('jspdf' as any)
 
     const element = document.getElementById(elementId)
     if (!element) return
