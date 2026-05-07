@@ -102,16 +102,19 @@ export default function Dashboard() {
         setCompanyName(target)
         const analysis = await analyzeData(ohlcvResult.data, currentRole)
         setAnalyzeResult(analysis)
-        await fetchInsight(analysis.metrics, currentRole, 'stock')
+
+        setDartLoading(true)
+        const [dart] = await Promise.all([
+          fetchDartInsight(target),
+          fetchInsight(analysis.metrics, currentRole, 'stock'),
+        ])
+        setDartData(dart)
+        setDartLoading(false)
       }
       if (investorResult.success && investorResult.data) {
         setInvestorData(investorResult.data)
       }
       setWarnings([])
-      setDartLoading(true)
-      const dart = await fetchDartInsight(target)
-      setDartData(dart)
-      setDartLoading(false)
     } catch (e) { console.error(e) }
     setLoading(false)
   }
