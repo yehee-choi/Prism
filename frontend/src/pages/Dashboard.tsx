@@ -79,8 +79,10 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  const handleTicker = async () => {
-    if (!ticker) return
+  const handleTicker = async (inputTicker?: string) => {
+    const target = inputTicker || ticker
+    if (!target) return
+    setTicker(target)
     setLoading(true)
     setInsight('')
     try {
@@ -91,13 +93,13 @@ export default function Dashboard() {
       const start = prev.toISOString().slice(0, 10).replace(/-/g, '')
 
       const [ohlcvResult, investorResult] = await Promise.all([
-        fetchStockOhlcv(ticker, start, end),
-        fetchStockInvestor(ticker, start, end),
+        fetchStockOhlcv(target, start, end),
+        fetchStockInvestor(target, start, end),
       ])
 
       if (ohlcvResult.success && ohlcvResult.data) {
         setOhlcv(ohlcvResult.data)
-        setCompanyName(ticker)
+        setCompanyName(target)
         const analysis = await analyzeData(ohlcvResult.data, currentRole)
         setAnalyzeResult(analysis)
         await fetchInsight(analysis.metrics, currentRole, 'stock')
@@ -106,9 +108,8 @@ export default function Dashboard() {
         setInvestorData(investorResult.data)
       }
       setWarnings([])
-      // DART 공시 분석
       setDartLoading(true)
-      const dart = await fetchDartInsight(ticker)
+      const dart = await fetchDartInsight(target)
       setDartData(dart)
       setDartLoading(false)
     } catch (e) { console.error(e) }
@@ -117,10 +118,33 @@ export default function Dashboard() {
 
   const renderDashboard = () => {
     if (!analyzeResult) return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
+      <div className="flex flex-col items-center justify-center h-full gap-6">
         <span className="material-symbols-outlined text-[80px] text-[#c7c4d7]">query_stats</span>
-        <p className="text-[#767586] text-sm">종목코드를 입력하거나 파일을 업로드해주세요</p>
-        <p className="text-[#767586] text-xs">CSV · Excel · JSON 모든 형태 지원</p>
+        <div className="text-center">
+          <p className="text-[#767586] text-sm mb-1">종목코드를 입력하거나 파일을 업로드해주세요</p>
+          <p className="text-[#767586] text-xs">CSV · Excel · JSON 모든 형태 지원</p>
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-xs text-[#767586] uppercase tracking-widest font-bold">빠른 데모</p>
+          <div className="flex flex-wrap gap-3 justify-center">
+            {[
+              { code: '005930', name: '삼성전자', desc: '반도체 · 대형주' },
+              { code: '000660', name: 'SK하이닉스', desc: '반도체 · 대형주' },
+              { code: '035420', name: 'NAVER', desc: '플랫폼 · IT' },
+              { code: '005380', name: '현대차', desc: '자동차 · 제조' },
+            ].map(stock => (
+              <button
+                key={stock.code}
+                onClick={() => handleTicker(stock.code)}
+                className="flex flex-col items-center px-6 py-4 bg-white border border-[#c7c4d7] rounded-xl hover:border-[#4648d4] hover:shadow-md transition-all group"
+              >
+                <span className="text-sm font-bold text-[#1b1b23] group-hover:text-[#4648d4]" style={{ fontFamily: 'Manrope' }}>{stock.name}</span>
+                <span className="text-xs text-[#767586]">{stock.desc}</span>
+                <span className="text-[10px] text-[#c7c4d7] font-mono mt-1">{stock.code}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     )
     const metrics = analyzeResult.metrics
@@ -269,6 +293,24 @@ export default function Dashboard() {
             </button>
           </div>
 
+          {/* 추천 종목 칩 */}
+          <div className="flex flex-wrap gap-2 mt-2">
+            {[
+              { code: '005930', name: '삼성전자' },
+              { code: '000660', name: 'SK하이닉스' },
+              { code: '035420', name: 'NAVER' },
+              { code: '005380', name: '현대차' },
+            ].map(stock => (
+              <button
+                key={stock.code}
+                onClick={() => { setTicker(stock.code); handleTicker() }}
+                className="px-3 py-1.5 bg-[#f5f2fe] border border-[#c7c4d7] rounded-lg text-xs text-[#464554] hover:border-[#4648d4] hover:text-[#4648d4] transition-all"
+                style={{ fontFamily: 'Manrope' }}
+              >
+                {stock.name}
+              </button>
+            ))}
+          </div>
           {/* 구분선 */}
           <div className="flex items-center gap-4">
             <div className="flex-1 h-px bg-[#c7c4d7]" />
