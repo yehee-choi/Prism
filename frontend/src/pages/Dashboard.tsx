@@ -135,12 +135,34 @@ export default function Dashboard() {
   }
 
   const handleTicker = async (inputTicker?: string, inputName?: string) => {
-    const target = inputTicker || ticker
+    let target = inputTicker || ticker
     if (!target) return
-    setTicker(target)
+
+    // 숫자가 아니면 (회사명 직접 입력) → 코드 먼저 검색
+    if (!/^\d+$/.test(target.trim())) {
+      try {
+        const results = await searchStock(target.trim())
+        if (results.length === 0) {
+          alert(`"${target}"에 해당하는 종목을 찾을 수 없습니다.`)
+          return
+        }
+        // 첫 번째 결과로 자동 선택
+        inputName = inputName || results[0].name
+        target = results[0].ticker
+        setTicker(target)
+      } catch (e) {
+        console.error(e)
+        return
+      }
+    }
+
     if (inputName) setCompanyName(inputName)
+    else if (!inputName) setCompanyName(target) // 코드 직접 입력 시 임시 표시
+
+    setStockDropdownOpen(false)
     setLoading(true)
     setInsight('')
+
     try {
       const today = new Date()
       const end = today.toISOString().slice(0, 10).replace(/-/g, '')
