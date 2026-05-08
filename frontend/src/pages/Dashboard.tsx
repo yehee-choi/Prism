@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePdfExport } from '../hooks/usePdfExport'
 import { useParams, useNavigate } from 'react-router-dom'
 import Loading from '../components/common/Loading'
@@ -8,7 +8,16 @@ import StockDashboard from '../components/dashboards/StockDashboard'
 import FinancialDashboard from '../components/dashboards/FinancialDashboard'
 import FundDashboard from '../components/dashboards/FundDashboard'
 import AnalystDashboard from '../components/dashboards/AnalystDashboard'
-import { uploadFile, analyzeData, fetchStockOhlcv, fetchStockInvestor, generateInsight, fetchDartInsight } from '../api'
+import {
+  uploadFile,
+  analyzeData,
+  fetchStockOhlcv,
+  fetchStockInvestor,
+  generateInsight,
+  fetchDartInsight,
+  searchStock,
+  type StockSearchResult,
+} from '../api'
 import DartInsight from '../components/common/DartInsight'
 
 type Role = 'stock' | 'fund' | 'financial' | 'analyst'
@@ -45,6 +54,52 @@ export default function Dashboard() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
 
+  const [stockSearchResults, setStockSearchResults] = useState<StockSearchResult[]>([])
+  const [stockSearchLoading, setStockSearchLoading] = useState(false)
+  const [stockDropdownOpen, setStockDropdownOpen] = useState(false)
+  const stockSearchRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const keyword = ticker.trim()
+
+    if (!keyword) {
+      setStockSearchResults([])
+      setStockDropdownOpen(false)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setStockSearchLoading(true)
+      try {
+        const results = await searchStock(keyword)
+        setStockSearchResults(results)
+        setStockDropdownOpen(results.length > 0)
+      } catch (e) {
+        console.error(e)
+        setStockSearchResults([])
+        setStockDropdownOpen(false)
+      } finally {
+        setStockSearchLoading(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [ticker])
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        stockSearchRef.current &&
+        !stockSearchRef.current.contains(e.target as Node)
+      ) {
+        setStockDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const handleExportPdf = async () => {
     setExporting(true)
     const label = companyName || ticker || currentRole
@@ -79,10 +134,11 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  const handleTicker = async (inputTicker?: string) => {
+  const handleTicker = async (inputTicker?: string, inputName?: string) => {
     const target = inputTicker || ticker
     if (!target) return
     setTicker(target)
+    if (inputName) setCompanyName(inputName)
     setLoading(true)
     setInsight('')
     try {
@@ -99,7 +155,6 @@ export default function Dashboard() {
 
       if (ohlcvResult.success && ohlcvResult.data) {
         setOhlcv(ohlcvResult.data)
-        setCompanyName(target)
         const analysis = await analyzeData(ohlcvResult.data, currentRole)
         setAnalyzeResult(analysis)
 
@@ -279,19 +334,58 @@ export default function Dashboard() {
             <p className="text-sm font-bold text-[#1b1b23] uppercase tracking-widest mb-3" style={{ fontFamily: 'Manrope' }}>
               종목코드 입력
             </p>
-            <div className="relative mb-3">
-              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#767586]">search</span>
+            <div ref={stockSearchRef} className="relative mb-3">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#767586] z-10">
+                search
+              </span>
+
               <input
                 value={ticker}
                 onChange={e => setTicker(e.target.value)}
+                onFocus={() => {
+                  if (stockSearchResults.length > 0) setStockDropdownOpen(true)
+                }}
                 onKeyDown={e => e.key === 'Enter' && handleTicker()}
-                placeholder="005930, 000660..."
-                className="w-full bg-[#f5f2fe] border border-[#c7c4d7] rounded-xl pl-12 pr-4 py-4 text-base focus:border-[#4648d4] focus:outline-none transition-all text-[#1b1b23] placeholder:text-[#767586]"
+                placeholder="삼성전자, 005930..."
+                className="w-full bg-[#f5f2fe] border border-[#c7c4d7] rounded-xl pl-12 pr-12 py-4 text-base focus:border-[#4648d4] focus:outline-none transition-all text-[#1b1b23] placeholder:text-[#767586]"
               />
+
+              {stockSearchLoading && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  <div className="w-4 h-4 border-2 border-[#c7c4d7] border-t-[#4648d4] rounded-full animate-spin" />
+                </div>
+              )}
+
+              {stockDropdownOpen && stockSearchResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 bg-white border border-[#c7c4d7] rounded-xl shadow-xl overflow-hidden">
+                  {stockSearchResults.map(item => (
+                    <button
+                      key={item.ticker}
+                      type="button"
+                      onClick={() => {
+                        setTicker(item.ticker)
+                        setStockDropdownOpen(false)
+                        handleTicker(item.ticker, item.name)
+                      }}
+                      className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#f5f2fe] transition-all"
+                    >
+                      <span className="text-sm font-bold text-[#1b1b23]" style={{ fontFamily: 'Manrope' }}>
+                        {item.name}
+                      </span>
+                      <span className="text-xs text-[#767586] font-mono">
+                        {item.ticker}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <button onClick={() => handleTicker()}
+
+            <button
+              onClick={() => handleTicker()}
               className="w-full bg-[#4648d4] hover:bg-[#2f2ebe] text-white font-bold py-4 rounded-xl text-base transition-all active:scale-95 shadow-lg shadow-[#4648d4]/20"
-              style={{ fontFamily: 'Manrope' }}>
+              style={{ fontFamily: 'Manrope' }}
+            >
               조회
             </button>
           </div>

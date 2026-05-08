@@ -47,3 +47,15 @@ export async function fetchDartInsight(ticker: string): Promise<any> {
   const res = await fetch(`${BASE_URL}/dart/insight/${ticker}`)
   return res.json()
 }
+
+export type StockSearchResult = {
+  ticker: string
+  name: string
+}
+
+export async function searchStock(query: string): Promise<StockSearchResult[]> {
+  if (!query.trim()) return []
+
+  const res = await fetch(`${BASE_URL}/stock/search?q=${encodeURIComponent(query)}`)
+  return res.json()
+}

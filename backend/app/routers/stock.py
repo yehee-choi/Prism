@@ -1,13 +1,52 @@
+from functools import lru_cache
+
 from fastapi import APIRouter, Query
-from app.services.collector import collect_all, get_stock_ohlcv, get_stock_investor, get_short_balance
+from pykrx import stock
+
+from app.services.collector import (
+    collect_all,
+    get_stock_ohlcv,
+    get_stock_investor,
+    get_short_balance,
+)
 
 router = APIRouter(prefix="/stock", tags=["stock"])
+
+
+@lru_cache(maxsize=1)
+def get_cached_stock_list():
+    tickers = stock.get_market_ticker_list(market="ALL")
+    return [
+        {
+            "ticker": ticker,
+            "name": stock.get_market_ticker_name(ticker),
+        }
+        for ticker in tickers
+    ]
+
+
+@router.get("/search")
+def search_stock(q: str = Query(..., description="종목명 또는 종목코드 검색어")):
+    query = q.strip().lower()
+
+    if not query:
+        return []
+
+    results = [
+        item
+        for item in get_cached_stock_list()
+        if query in item["ticker"].lower()
+        or query in item["name"].lower()
+    ]
+
+    return results[:10]
+
 
 @router.get("/collect/{ticker}")
 def collect_stock(
     ticker: str,
     period_days: int = Query(default=365, description="수집 기간 (일)"),
-    role: str = Query(default="stock", description="직군: stock / financial / fund / analyst")
+    role: str = Query(default="stock", description="직군: stock / financial / fund / analyst"),
 ):
     """종목코드 입력 → 전체 데이터 자동 수집"""
     return collect_all(ticker, period_days)
