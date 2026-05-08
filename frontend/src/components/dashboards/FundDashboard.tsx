@@ -4,13 +4,16 @@ import StockChart from '../charts/StockChart'
 interface Props {
   metrics: any
   ohlcv: any[]
+  dartData?: any
 }
 
-export default function FundDashboard({ metrics, ohlcv }: Props) {
+export default function FundDashboard({ metrics, ohlcv, dartData }: Props) {
   const returns = metrics?.returns
   const risk = metrics?.risk
   const riskAdj = metrics?.risk_adjusted
   const portfolioRisk = metrics?.portfolio_risk
+  const shareholders = dartData?.shareholders as any[] | undefined
+  const shares = dartData?.shares
 
   const warnings: string[] = []
   if (riskAdj?.sharpe !== undefined && riskAdj.sharpe < 0) warnings.push('샤프지수 음수 — 무위험자산 수익률 미달')
@@ -72,6 +75,72 @@ export default function FundDashboard({ metrics, ohlcv }: Props) {
           )}
         </div>
       </div>
+
+      {/* 대주주 현황 */}
+      {shareholders && shareholders.length > 0 && (
+        <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[#1b1b23] text-sm font-bold" style={{ fontFamily: 'Manrope' }}>대주주 현황</p>
+            {dartData?.pe_detected && (
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-red-50 border border-red-200 rounded-full text-xs text-[#EF4444] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] inline-block" />
+                PE 감지
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col divide-y divide-[#f0edf8]">
+            {shareholders.slice(0, 8).map((sh: any, i: number) => (
+              <div key={i} className="flex items-center justify-between py-2">
+                <div>
+                  <span className="text-sm text-[#1b1b23] font-medium">{sh.name}</span>
+                  {sh.relation && <span className="ml-2 text-xs text-[#767586]">{sh.relation}</span>}
+                </div>
+                <div className="flex items-center gap-3">
+                  {sh.ratio && (
+                    <>
+                      <div className="w-24 h-1.5 bg-[#f0edf8] rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[#4648d4] rounded-full"
+                          style={{ width: `${Math.min(100, parseFloat(sh.ratio) * 3)}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-[#4648d4] w-12 text-right">{sh.ratio}%</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 주식 발행 현황 */}
+      {shares && shares.items && shares.items.length > 0 && (
+        <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
+          <p className="text-[#1b1b23] text-sm font-bold mb-3" style={{ fontFamily: 'Manrope' }}>
+            주식 발행 현황 <span className="text-[10px] text-[#767586] font-normal ml-1">{shares.year}년</span>
+          </p>
+          <div className="flex flex-col gap-3">
+            {shares.items.map((item: any, i: number) => (
+              <div key={i} className="grid grid-cols-4 gap-2 text-xs">
+                <span className="text-[#767586] font-medium">{item.type}</span>
+                <div>
+                  <p className="text-[#767586]">발행총수</p>
+                  <p className="font-bold text-[#1b1b23]">{Number(item.total_issued?.replace(/,/g, '') || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[#767586]">자기주식</p>
+                  <p className="font-bold text-[#F59E0B]">{Number(item.treasury?.replace(/,/g, '') || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[#767586]">유통주식</p>
+                  <p className="font-bold text-[#10B981]">{Number(item.float?.replace(/,/g, '') || 0).toLocaleString()}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {ohlcv.length > 0 && <StockChart data={ohlcv} />}
     </div>

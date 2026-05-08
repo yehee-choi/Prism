@@ -48,6 +48,11 @@ export async function fetchDartInsight(ticker: string): Promise<any> {
   return res.json()
 }
 
+export async function fetchDartFull(ticker: string): Promise<any> {
+  const res = await fetch(`${BASE_URL}/dart/full/${ticker}`)
+  return res.json()
+}
+
 export type StockSearchResult = {
   ticker: string
   name: string

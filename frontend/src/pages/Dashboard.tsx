@@ -14,7 +14,7 @@ import {
   fetchStockOhlcv,
   fetchStockInvestor,
   generateInsight,
-  fetchDartInsight,
+  fetchDartFull,
   searchStock,
   type StockSearchResult,
 } from '../api'
@@ -183,7 +183,7 @@ export default function Dashboard() {
         
         setDartLoading(true)
         const [dart] = await Promise.all([
-          fetchDartInsight(target),
+          fetchDartFull(target),
           fetchInsight(analysis.metrics, currentRole, 'stock'),
         ])
         setDartData(dart)
@@ -233,10 +233,10 @@ export default function Dashboard() {
       <div className="flex flex-col gap-6">
         {(() => {
           switch (currentRole) {
-            case 'stock': return <StockDashboard metrics={metrics} ohlcv={ohlcv} investorData={investorData} />
-            case 'fund': return <FundDashboard metrics={metrics} ohlcv={ohlcv} />
+            case 'stock': return <StockDashboard metrics={metrics} ohlcv={ohlcv} investorData={investorData} dartData={dartData} />
+            case 'fund': return <FundDashboard metrics={metrics} ohlcv={ohlcv} dartData={dartData} />
             case 'financial': return <FinancialDashboard metrics={metrics} dartData={dartData} />
-            case 'analyst': return <AnalystDashboard metrics={metrics} ohlcv={ohlcv} />
+            case 'analyst': return <AnalystDashboard metrics={metrics} ohlcv={ohlcv} dartData={dartData} />
             default: return null
           }
         })()}
