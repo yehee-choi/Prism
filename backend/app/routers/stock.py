@@ -1,5 +1,5 @@
 import os
-from functools import lru_cache
+import requests
 
 from fastapi import APIRouter, Query
 from dotenv import load_dotenv
@@ -16,35 +16,32 @@ from app.services.collector import (
 router = APIRouter(prefix="/stock", tags=["stock"])
 
 
-@lru_cache(maxsize=1)
-def get_dart_corp_list():
-    import dart_fss as dart
-    dart.set_api_key(os.getenv("DART_API_KEY"))
-    return dart.get_corp_list()
-
-
 @router.get("/search")
 def search_stock(q: str = Query(..., description="종목명 또는 종목코드 검색어")):
     query = q.strip()
     if not query:
         return []
 
-    try:
-        corp_list = get_dart_corp_list()
+    dart_api_key = os.getenv("DART_API_KEY")
+    if not dart_api_key:
+        return []
 
-        # 종목코드로 검색 (숫자 6자리인 경우)
-        if query.isdigit() and len(query) == 6:
-            corp = corp_list.find_by_stock_code(query)
-            if corp and corp.stock_code:
-                return [{"ticker": corp.stock_code, "name": corp.corp_name}]
+    try:
+        resp = requests.get(
+            "https://opendart.fss.or.kr/api/company.json",
+            params={"crtfc_key": dart_api_key, "corp_name": query},
+            timeout=10,
+        )
+        data = resp.json()
+
+        if data.get("status") != "000":
             return []
 
-        # 회사명으로 검색
-        results = corp_list.find_by_corp_name(query, exactly=False)
         output = []
-        for corp in results:
-            if corp.stock_code:
-                output.append({"ticker": corp.stock_code, "name": corp.corp_name})
+        for corp in data.get("results", []):
+            stock_code = corp.get("stock_code", "").strip()
+            if stock_code:
+                output.append({"ticker": stock_code, "name": corp.get("corp_name", "")})
             if len(output) >= 10:
                 break
         return output
