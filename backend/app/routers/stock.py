@@ -1,8 +1,11 @@
 import os
+import threading
 import requests
 
 from fastapi import APIRouter, Query
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
+from pykrx import stock as pykrx_stock
 
 load_dotenv()
 
@@ -15,6 +18,39 @@ from app.services.collector import (
 
 router = APIRouter(prefix="/stock", tags=["stock"])
 
+# In-memory cache: ticker -> name
+_ticker_name_map: dict = {}
+_cache_date: str = ""
+_cache_lock = threading.Lock()
+
+
+def _get_ticker_name_map() -> dict:
+    global _ticker_name_map, _cache_date
+
+    today = datetime.today()
+    while today.weekday() >= 5:  # skip weekends
+        today -= timedelta(days=1)
+    date_str = today.strftime("%Y%m%d")
+
+    if _cache_date == date_str and _ticker_name_map:
+        return _ticker_name_map
+
+    with _cache_lock:
+        if _cache_date == date_str and _ticker_name_map:
+            return _ticker_name_map
+
+        new_map: dict = {}
+        for market in ["KOSPI", "KOSDAQ"]:
+            tickers = pykrx_stock.get_market_ticker_list(date_str, market=market)
+            for ticker in tickers:
+                name = pykrx_stock.get_market_ticker_name(ticker)
+                new_map[ticker] = name
+
+        _ticker_name_map = new_map
+        _cache_date = date_str
+
+    return _ticker_name_map
+
 
 @router.get("/search")
 def search_stock(q: str = Query(..., description="종목명 또는 종목코드 검색어")):
@@ -22,30 +58,15 @@ def search_stock(q: str = Query(..., description="종목명 또는 종목코드 
     if not query:
         return []
 
-    dart_api_key = os.getenv("DART_API_KEY")
-    if not dart_api_key:
-        return []
-
     try:
-        resp = requests.get(
-            "https://opendart.fss.or.kr/api/company.json",
-            params={"crtfc_key": dart_api_key, "corp_name": query},
-            timeout=10,
-        )
-        data = resp.json()
-
-        if data.get("status") != "000":
-            return []
-
-        output = []
-        for corp in data.get("results", []):
-            stock_code = corp.get("stock_code", "").strip()
-            if stock_code:
-                output.append({"ticker": stock_code, "name": corp.get("corp_name", "")})
-            if len(output) >= 10:
-                break
-        return output
-
+        ticker_map = _get_ticker_name_map()
+        results = []
+        for ticker, name in ticker_map.items():
+            if query in name or query == ticker:
+                results.append({"ticker": ticker, "name": name})
+                if len(results) >= 10:
+                    break
+        return results
     except Exception:
         return []
 
