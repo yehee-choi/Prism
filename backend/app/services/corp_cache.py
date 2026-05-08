@@ -61,12 +61,12 @@ def load_corp_cache():
             _cache_error = str(e)
 
 
-def get_corp_code(ticker: str) -> str | None:
+def get_corp_code(ticker: str):
     load_corp_cache()
     return _ticker_to_corp.get(ticker)
 
 
-def get_corp_name(ticker: str) -> str | None:
+def get_corp_name(ticker: str):
     load_corp_cache()
     return _ticker_to_name.get(ticker)
 

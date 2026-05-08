@@ -24,7 +24,7 @@ def _dart(endpoint: str, params: dict) -> dict:
         return {"status": "error", "message": str(e)}
 
 
-def _parse_amount(s: str | None) -> int | None:
+def _parse_amount(s):
     if not s:
         return None
     try:
@@ -33,7 +33,7 @@ def _parse_amount(s: str | None) -> int | None:
         return None
 
 
-def _fmt(v: int | None) -> str:
+def _fmt(v) -> str:
     if v is None:
         return "-"
     abs_v = abs(v)
