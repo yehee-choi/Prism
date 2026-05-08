@@ -21,7 +21,7 @@ export default function FundDashboard({ metrics, ohlcv, dartData }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {returns && <>
           <KpiCard label="누적 수익률" value={`${(returns.cumulative_return * 100).toFixed(2)}%`} positive={returns.cumulative_return > 0} />
           <KpiCard label="CAGR" value={`${(returns.cagr * 100).toFixed(2)}%`} positive={returns.cagr > 0} />
@@ -122,7 +122,7 @@ export default function FundDashboard({ metrics, ohlcv, dartData }: Props) {
           </p>
           <div className="flex flex-col gap-3">
             {shares.items.map((item: any, i: number) => (
-              <div key={i} className="grid grid-cols-4 gap-2 text-xs">
+              <div key={i} className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                 <span className="text-[#767586] font-medium">{item.type}</span>
                 <div>
                   <p className="text-[#767586]">발행총수</p>

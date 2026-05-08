@@ -16,7 +16,7 @@ export default function KpiCard({ label, value, sub, color, positive }: Props) {
   return (
     <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
       <p className="text-[#767586] text-xs mb-2">{label}</p>
-      <p className="text-2xl font-bold" style={{ color: color || valueColor }}>
+      <p className="text-xl md:text-2xl font-bold" style={{ color: color || valueColor }}>
         {value}
       </p>
       {sub && <p className="text-[#767586] text-xs mt-1">{sub}</p>}

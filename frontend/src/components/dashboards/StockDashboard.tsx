@@ -30,7 +30,7 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
         {returns && <>
           <KpiCard label="단순 수익률" value={`${(returns.simple_return * 100).toFixed(2)}%`} positive={returns.simple_return > 0} />
           <KpiCard label="CAGR" value={`${(returns.cagr * 100).toFixed(2)}%`} positive={returns.cagr > 0} />
@@ -47,7 +47,7 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
         </>}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
         <RiskScore title="종합 리스크 스코어" score={riskScore} warnings={warnings} />
         <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
           <p className="text-[#767586] text-xs mb-3">VaR (95%)</p>
@@ -64,7 +64,7 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
           <p className="text-[#1b1b23] text-sm font-bold mb-3" style={{ fontFamily: 'Manrope' }}>
             배당 현황 <span className="text-[10px] text-[#767586] font-normal ml-1">DART {dividends.year}년 사업보고서</span>
           </p>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
             {dividends.cash_per_share && dividends.cash_per_share !== '-' && (
               <div>
                 <p className="text-xs text-[#767586] mb-1">주당 현금배당금</p>

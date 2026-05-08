@@ -42,7 +42,7 @@ export default function FinancialDashboard({ metrics, dartData }: Props) {
             재무제표 핵심 수치
             <span className="text-[10px] text-[#767586] font-normal ml-2">DART {financial.year}년 사업보고서</span>
           </p>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
             {/* 손익계산서 */}
             <div>
               <p className="text-xs font-bold text-[#767586] uppercase tracking-widest mb-2">손익계산서 (IS)</p>
@@ -93,7 +93,7 @@ export default function FinancialDashboard({ metrics, dartData }: Props) {
           {financial.cf && financial.cf.length > 0 && (
             <div className="mt-4 pt-4 border-t border-[#f0edf8]">
               <p className="text-xs font-bold text-[#767586] uppercase tracking-widest mb-2">현금흐름표 (CF)</p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {financial.cf.slice(0, 3).map((item: any) => (
                   <div key={item.account} className="bg-[#f5f2fe] rounded-lg p-3">
                     <p className="text-[10px] text-[#767586] mb-1">{item.account}</p>
@@ -108,7 +108,7 @@ export default function FinancialDashboard({ metrics, dartData }: Props) {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {credit?.current_ratio !== undefined && (
           <KpiCard label="유동비율" value={`${credit.current_ratio.toFixed(1)}%`}
             positive={credit.current_ratio >= 100} sub="기준 100% 이상" />
@@ -137,7 +137,7 @@ export default function FinancialDashboard({ metrics, dartData }: Props) {
       {cashflow && (
         <div className="flex flex-col gap-3">
           <p className="text-[#1b1b23] text-sm font-medium">현금흐름 지표</p>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {cashflow.ocf !== undefined && (
               <KpiCard label="OCF"
                 value={cashflow.ocf >= 1_000_000 ? `${(cashflow.ocf / 1_000_000).toFixed(1)}조`
@@ -159,7 +159,7 @@ export default function FinancialDashboard({ metrics, dartData }: Props) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
         <RiskScore title="부도 조기경보 스코어" score={score} warnings={warnings} />
         <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
           <p className="text-[#1b1b23] text-sm font-medium mb-3">PE 대주주 리스크</p>

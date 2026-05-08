@@ -26,7 +26,7 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {returns && <>
           <KpiCard label="단순 수익률" value={`${(returns.simple_return * 100).toFixed(2)}%`} positive={returns.simple_return > 0} />
           <KpiCard label="CAGR" value={`${(returns.cagr * 100).toFixed(2)}%`} positive={returns.cagr > 0} />
@@ -45,7 +45,7 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
 
       {/* DART 재무 요약 + 배당 */}
       {(financial?.year || dividends?.year) && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
           {financial?.year && (
             <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
               <p className="text-[#1b1b23] text-sm font-bold mb-3" style={{ fontFamily: 'Manrope' }}>
@@ -111,7 +111,7 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
       {targetPrice && (
         <div className="flex flex-col gap-3">
           <p className="text-[#1b1b23] text-sm font-medium">목표주가 · 투자의견</p>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {targetPrice.target_price !== undefined && (
               <KpiCard label="목표주가" value={`${targetPrice.target_price.toLocaleString()}원`} positive={targetPrice.upside > 0} />
             )}
@@ -134,7 +134,7 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
       )}
 
       {/* 임원 현황 + 대주주 */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
         {executives && executives.length > 0 && (
           <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
             <p className="text-[#1b1b23] text-sm font-bold mb-3" style={{ fontFamily: 'Manrope' }}>임원 현황</p>
@@ -181,7 +181,7 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
       {(valuation?.ev_ebitda !== undefined || valuation?.psr !== undefined) && (
         <div className="flex flex-col gap-3">
           <p className="text-[#1b1b23] text-sm font-medium">밸류에이션 멀티플</p>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {valuation.ev_ebitda !== undefined && (
               <KpiCard label="EV/EBITDA" value={`${valuation.ev_ebitda.toFixed(1)}x`} sub="기준 10x 이하" positive={valuation.ev_ebitda <= 10} />
             )}
@@ -195,7 +195,7 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
       {/* 밸류에이션 섹션 */}
       <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
         <p className="text-[#1b1b23] text-sm font-medium mb-3">밸류에이션 분석</p>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <p className="text-xs text-[#767586] mb-1">PER 밴드</p>
             {valuation?.per !== undefined
