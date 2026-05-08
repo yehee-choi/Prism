@@ -180,6 +180,7 @@ export default function Dashboard() {
         const analysis = await analyzeData(ohlcvResult.data, currentRole)
         setAnalyzeResult(analysis)
 
+        
         setDartLoading(true)
         const [dart] = await Promise.all([
           fetchDartInsight(target),
