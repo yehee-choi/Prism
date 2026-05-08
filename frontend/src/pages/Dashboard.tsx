@@ -51,10 +51,10 @@ export default function Dashboard() {
     await exportPdf('dashboard-content', `prism-${currentRole}-${label}`)
     setExporting(false)
   }
-  const fetchInsight = async (metrics: any, role: string, dt: string) => {
+  const fetchInsight = async (metrics: any, role: string, dt: string, extraData: any = null) => {
     setInsightLoading(true)
     try {
-      const result = await generateInsight(metrics, role, dt)
+      const result = await generateInsight(metrics, role, dt, extraData)
       setInsight(result.insight || '')
     } catch (e) { console.error(e) }
     setInsightLoading(false)
@@ -73,7 +73,7 @@ export default function Dashboard() {
         const analysis = await analyzeData(result.data, currentRole)
         setAnalyzeResult(analysis)
         if (result.data[0]?.close) setOhlcv(result.data)
-        await fetchInsight(analysis.metrics, currentRole, result.data_type)
+        await fetchInsight(analysis.metrics, currentRole, result.data_type, result.extra_data)
       }
     } catch (e) { console.error(e) }
     setLoading(false)
