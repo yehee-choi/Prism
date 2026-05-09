@@ -9,7 +9,7 @@ router = APIRouter(prefix="/upload", tags=["upload"])
 async def upload_file(file: UploadFile = File(...)):
     """
     파일 업로드 → Skills.md 파싱 → Claude 전체 파일 분석
-    재무 데이터 부족 시 DART에서 자동 보완
+    재무 데이터 부족 시 DART에서 자동 보완 (비상장사 포함)
     """
     allowed = ["csv", "xlsx", "xls", "json", "pdf"]
     ext = file.filename.split(".")[-1].lower()
@@ -62,22 +62,20 @@ async def upload_file(file: UploadFile = File(...)):
     dart_supplement = {}
     if not has_enough_financial_data(df) and (identified_ticker or identified_name):
         try:
-            from app.services.corp_cache import get_corp_code, get_corp_name, search_by_name
+            from app.services.corp_cache import get_corp_code, get_corp_name, get_corp_code_by_name
             from app.services.dart_insight import get_financial_data
 
             corp_code = None
 
-            # ticker로 corp_code 변환
+            # 1순위: ticker로 corp_code 변환 (상장사)
             if identified_ticker:
                 corp_code = get_corp_code(identified_ticker)
+                print(f"[DART 보완] ticker {identified_ticker} → corp_code: {corp_code}")
 
-            # 이름으로 검색 (ticker 없거나 못 찾은 경우)
+            # 2순위: 이름으로 corp_code 직접 변환 (상장사 + 비상장사)
             if not corp_code and identified_name:
-                results = search_by_name(identified_name, limit=1)
-                if results:
-                    corp_code = get_corp_code(results[0]["ticker"])
-                    identified_ticker = results[0]["ticker"]
-                    print(f"[DART 보완] 이름으로 종목 찾음: {identified_name} → {identified_ticker}")
+                corp_code = get_corp_code_by_name(identified_name)
+                print(f"[DART 보완] 이름 '{identified_name}' → corp_code: {corp_code}")
 
             if corp_code:
                 print(f"[DART 보완] corp_code: {corp_code} 재무제표 조회 시작")
@@ -102,7 +100,6 @@ async def upload_file(file: UploadFile = File(...)):
                     }
                     for item in financial.get("is_", []):
                         if item["account"] in is_map and item["current"] is not None:
-                            # 이미 같은 키가 있으면 덮어쓰지 않음
                             key = is_map[item["account"]]
                             if key not in dart_row:
                                 dart_row[key] = item["current"]
@@ -122,6 +119,8 @@ async def upload_file(file: UploadFile = File(...)):
                             "columns_added": list(dart_row.keys()),
                         }
                         print(f"[DART 보완] 완료: {list(dart_row.keys())}")
+            else:
+                print(f"[DART 보완] corp_code를 찾을 수 없음: ticker={identified_ticker}, name={identified_name}")
 
         except Exception as e:
             print(f"[DART 보완 오류] {e}")

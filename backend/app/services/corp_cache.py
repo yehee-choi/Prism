@@ -8,6 +8,7 @@ from xml.etree import ElementTree as ET
 _name_to_ticker: dict = {}
 _ticker_to_name: dict = {}
 _ticker_to_corp: dict = {}   # stock_code -> corp_code (DART 고유번호)
+_name_to_corp: dict = {}  
 _cache_loaded = False
 _cache_lock = threading.Lock()
 _cache_error: str = ""
@@ -16,6 +17,7 @@ _cache_error: str = ""
 def load_corp_cache():
     global _name_to_ticker, _ticker_to_name, _ticker_to_corp
     global _cache_loaded, _cache_error
+    global _name_to_ticker, _ticker_to_name, _ticker_to_corp, _name_to_corp
 
     if _cache_loaded:
         return
@@ -46,10 +48,13 @@ def load_corp_cache():
                 stock_code = (corp.findtext("stock_code") or "").strip()
                 corp_name = (corp.findtext("corp_name") or "").strip()
                 corp_code = (corp.findtext("corp_code") or "").strip()
-                if stock_code and corp_name and corp_code:
-                    n2t[corp_name] = stock_code
-                    t2n[stock_code] = corp_name
-                    t2c[stock_code] = corp_code
+                if corp_name and corp_code:
+                    _name_to_corp[corp_name] = corp_code  # 이름 → corp_code 직접 매핑
+                    if stock_code:
+                        n2t[corp_name] = stock_code
+                        t2n[stock_code] = corp_name
+                        t2c[stock_code] = corp_code
+
 
             _name_to_ticker = n2t
             _ticker_to_name = t2n
@@ -88,6 +93,10 @@ def cache_info() -> dict:
         "error": _cache_error,
         "total": len(_name_to_ticker),
     }
+    
+def get_corp_code_by_name(name: str) -> str | None:
+    load_corp_cache()
+    return _name_to_corp.get(name)
 
 
 # Background preload on import
