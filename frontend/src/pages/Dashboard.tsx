@@ -60,6 +60,27 @@ export default function Dashboard() {
   const [stockDropdownOpen, setStockDropdownOpen] = useState(false)
   const stockSearchRef = useRef<HTMLDivElement | null>(null)
 
+  // 탭 전환 시 인사이트 재생성
+  useEffect(() => {
+    if (!analyzeResult) return
+
+    if (uploadResult) {
+      fetchInsight(
+        analyzeResult.metrics,
+        currentRole,
+        uploadResult.data_type || 'unknown',
+        uploadResult.extra_data,
+        uploadResult.extra_context,
+      )
+    } else if (dartData) {
+      fetchInsight(analyzeResult.metrics, currentRole, 'stock', null, {
+        file_summary: dartData.corp_name ? `${dartData.corp_name} DART 공시 데이터` : null,
+        text_analysis: dartData.summary ? { '공시요약': dartData.summary } : {},
+        anomalies: dartData.pe_detected ? [`PE 대주주 감지: ${dartData.pe_keywords?.join(', ')}`] : [],
+      })
+    }
+  }, [currentRole])
+
   useEffect(() => {
     const keyword = ticker.trim()
 
