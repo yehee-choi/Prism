@@ -94,7 +94,8 @@ def cache_info() -> dict:
         "total": len(_name_to_ticker),
     }
     
-def get_corp_code_by_name(name: str) -> str | None:
+from typing import Optional
+def get_corp_code_by_name(name: str) -> Optional[str]:
     load_corp_cache()
     return _name_to_corp.get(name)
 
