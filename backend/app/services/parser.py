@@ -82,10 +82,10 @@ def parse_file(file_bytes: bytes, filename: str) -> dict:
     except Exception as e:
         return {"success": False, "error": f"파일 읽기 실패: {str(e)}"}
 
-    data_type = detect_data_type(df)
-    norm_result = run_normalization(df)
+    norm_result = run_normalization(df)   # 정규화 먼저
     df = norm_result["df"]
     unmapped = norm_result["unmapped_columns"]
+    data_type = detect_data_type(df)      # 정규화 후 표준 컬럼명으로 감지
 
     ai_mapped = {}
     if unmapped:
