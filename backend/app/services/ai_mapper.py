@@ -17,6 +17,13 @@ STANDARD_KEYS = [
     "sharpe", "weight", "benchmark"
 ]
 
+# 재무 데이터 핵심 컬럼
+FINANCIAL_KEYS = {
+    "revenue", "operating_income", "net_income", "total_asset",
+    "total_debt", "equity", "current_asset", "current_liability",
+    "interest_expense", "accounts_receivable"
+}
+
 
 def analyze_file_with_ai(df: pd.DataFrame, unmapped_columns: list) -> dict:
     """
@@ -25,14 +32,11 @@ def analyze_file_with_ai(df: pd.DataFrame, unmapped_columns: list) -> dict:
     2. 텍스트 컬럼 내용 요약
     3. 비표준 수치 컬럼 분석
     4. 파일 전체 특이사항 추출
+    5. 종목명/코드 추출 (DART 자동 보완용) ← 신규
     """
     if df.empty:
-        return {"column_mapping": {}, "extra_context": {}}
+        return {"column_mapping": {}, "extra_context": {}, "identified_ticker": None, "identified_name": None}
 
-    # 샘플 데이터 구성 (최대 5행, 개인정보 노출 최소화)
-    sample = df.head(5).copy()
-
-    # 컬럼별 메타 정보 구성
     col_meta = {}
     for col in df.columns:
         series = df[col]
@@ -48,7 +52,6 @@ def analyze_file_with_ai(df: pd.DataFrame, unmapped_columns: list) -> dict:
                 "latest": round(float(numeric.dropna().iloc[-1]), 2) if numeric.notna().any() else None,
             }
         else:
-            # 텍스트 컬럼: 샘플 값 전달
             text_samples = series.dropna().astype(str).head(3).tolist()
             col_meta[col] = {
                 "type": "text",
@@ -64,7 +67,7 @@ def analyze_file_with_ai(df: pd.DataFrame, unmapped_columns: list) -> dict:
 ## 표준 키 목록
 {json.dumps(STANDARD_KEYS, ensure_ascii=False)}
 
-## 미매핑 컬럼 (표준 키로 변환이 필요한 컬럼)
+## 미매핑 컬럼
 {json.dumps(unmapped_columns, ensure_ascii=False)}
 
 다음 JSON 형식으로만 응답하세요. 설명이나 마크다운 없이 JSON만:
@@ -74,7 +77,7 @@ def analyze_file_with_ai(df: pd.DataFrame, unmapped_columns: list) -> dict:
     "컬럼명": "표준키 또는 null"
   }},
   "text_analysis": {{
-    "텍스트컬럼명": "해당 컬럼의 내용 요약 및 분석적 의미 (예: 감사의견 한정→재무위험, 경영진코멘트에서 유동성위기 언급 등)"
+    "텍스트컬럼명": "해당 컬럼의 내용 요약 및 분석적 의미"
   }},
   "extra_numeric": {{
     "비표준수치컬럼명": {{
@@ -84,7 +87,9 @@ def analyze_file_with_ai(df: pd.DataFrame, unmapped_columns: list) -> dict:
     }}
   }},
   "file_summary": "이 파일이 담고 있는 정보의 전체 성격과 핵심 특이사항을 2~3문장으로 요약",
-  "anomalies": ["데이터에서 발견된 특이사항 또는 위험 신호 목록"]
+  "anomalies": ["데이터에서 발견된 특이사항 또는 위험 신호 목록"],
+  "identified_name": "파일에서 식별된 기업명 (예: 홈플러스, 삼성전자). 없으면 null",
+  "identified_ticker": "파일에서 식별된 종목코드 6자리 숫자 (예: 005930). 없으면 null"
 }}"""
 
     try:
@@ -102,8 +107,6 @@ def analyze_file_with_ai(df: pd.DataFrame, unmapped_columns: list) -> dict:
             response_text = response_text.rstrip("`").strip()
 
         result = json.loads(response_text)
-
-        # null 제거
         mapping = {k: v for k, v in result.get("column_mapping", {}).items() if v and v != "null"}
 
         return {
@@ -113,25 +116,30 @@ def analyze_file_with_ai(df: pd.DataFrame, unmapped_columns: list) -> dict:
                 "extra_numeric": result.get("extra_numeric", {}),
                 "file_summary": result.get("file_summary", ""),
                 "anomalies": result.get("anomalies", []),
-            }
+            },
+            "identified_name": result.get("identified_name"),      # ← 신규
+            "identified_ticker": result.get("identified_ticker"),  # ← 신규
         }
 
     except Exception as e:
         print(f"[AI 파일 분석 오류] {e}")
-        return {"column_mapping": {}, "extra_context": {}}
+        return {"column_mapping": {}, "extra_context": {}, "identified_name": None, "identified_ticker": None}
 
 
-# 기존 함수 호환성 유지
+def has_enough_financial_data(df: pd.DataFrame) -> bool:
+    """재무 분석에 필요한 핵심 컬럼이 충분히 있는지 확인"""
+    existing = set(df.columns) & FINANCIAL_KEYS
+    return len(existing) >= 3  # 3개 이상이면 충분
+
+
 def map_columns_with_ai(unmapped_columns: list) -> dict:
-    """레거시 호환용 — 컬럼명만 매핑 (extra_context 없음)"""
+    """레거시 호환용"""
     if not unmapped_columns:
         return {}
-
     prompt = f"""다음 금융 데이터 컬럼명을 표준 키로 매핑하세요.
 컬럼명: {json.dumps(unmapped_columns, ensure_ascii=False)}
 표준 키: {json.dumps(STANDARD_KEYS, ensure_ascii=False)}
 JSON으로만 응답: {{"컬럼명": "표준키 또는 null"}}"""
-
     try:
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
