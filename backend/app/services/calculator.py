@@ -14,6 +14,16 @@ SECTOR_PER_BENCHMARK = {
     "기타": {"per_low": 12, "per_high": 15},
 }
 
+FINANCIAL_COLS = {"revenue", "operating_income", "net_income", "total_asset",
+                  "total_debt", "equity", "current_asset", "current_liability",
+                  "interest_expense", "accounts_receivable"}
+
+def _has_close(df): 
+    return "close" in df.columns and pd.to_numeric(df["close"], errors="coerce").notna().sum() >= 2
+
+def _has_financial(df): 
+    return len(set(df.columns) & FINANCIAL_COLS) >= 2
+
 # ── 1. 수익률 ─────────────────────────────────────
 def calc_returns(df: pd.DataFrame) -> dict:
     """수익률 계산 (단순·누적·CAGR)"""
@@ -360,36 +370,25 @@ def calc_target_price(df: pd.DataFrame) -> dict:
 
 # ── 6. 직군별 통합 계산 ───────────────────────────
 def calculate_by_role(df: pd.DataFrame, role: str) -> dict:
-    """직군에 따라 필요한 지표만 계산"""
-    if role == "stock":
-        return {
-            "returns": calc_returns(df),
-            "risk": calc_risk(df),
-            "risk_adjusted": calc_risk_adjusted(df),
-            "technical": calc_technical(df),
-        }
-    elif role == "fund":
-        return {
-            "returns": calc_returns(df),
-            "risk": calc_risk(df),
-            "risk_adjusted": calc_risk_adjusted(df),
-            "portfolio_risk": calc_portfolio_risk(df),
-        }
-    elif role == "financial":
-        return {
-            "valuation": calc_valuation(df),
-            "credit_risk": calc_credit_risk(df),
-            "cashflow": calc_cashflow(df),
-        }
-    elif role == "analyst":
-        return {
-            "returns": calc_returns(df),
-            "valuation": calc_valuation(df),
-            "risk": calc_risk(df),
-            "target_price": calc_target_price(df), 
-        }
-    else:
-        return {
-            "returns": calc_returns(df),
-            "risk": calc_risk(df),
-        }
+    result = {}
+
+    # 주가 데이터 있으면 → 주가 계산 (role 무관)
+    if _has_close(df):
+        result["returns"] = calc_returns(df)
+        result["risk"] = calc_risk(df)
+        result["risk_adjusted"] = calc_risk_adjusted(df)
+        result["technical"] = calc_technical(df)
+
+    # 재무 데이터 있으면 → 재무 계산 (role 무관)
+    if _has_financial(df):
+        result["valuation"] = calc_valuation(df)
+        result["credit_risk"] = calc_credit_risk(df)
+        result["cashflow"] = calc_cashflow(df)
+
+    # role별 추가 계산
+    if role == "fund":
+        result["portfolio_risk"] = calc_portfolio_risk(df)
+    if role in ("analyst", "fund"):
+        result["target_price"] = calc_target_price(df)
+
+    return result
