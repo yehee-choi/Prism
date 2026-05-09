@@ -6,76 +6,73 @@ load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-# ── 직군별 분석 포커스 (구체적 지시) ────────────────────────
 ROLE_FOCUS = {
     "stock": {
         "persona": "주식 투자자",
-        "priority_metrics": ["수급(외국인·기관)", "공매도 잔고", "RSI", "이동평균 크로스", "MDD", "변동성"],
+        "core_question": "이 종목 지금 사도 되는가? 또는 보유 중이라면 계속 들고 있어야 하는가?",
+        "priority_metrics": ["수급(외국인·기관)", "RSI", "이동평균 크로스", "MDD", "변동성", "유동비율", "부채비율"],
         "key_questions": [
-            "외국인·기관의 순매수/순매도 방향이 바뀌고 있는가?",
-            "공매도 잔고가 급증하고 있는가?",
-            "RSI 과매수/과매도 구간인가?",
-            "골든크로스/데드크로스 신호가 있는가?",
-            "PE(사모펀드) 대주주가 있어 엑시트 리스크가 있는가?",
+            "지금 매수/매도/관망 중 어느 액션이 맞는가?",
+            "손절 기준은 어디인가?",
+            "외국인·기관이 사고 있는가, 팔고 있는가?",
+            "재무 상태가 주가에 어떤 영향을 미치는가?",
+            "PE 대주주가 있어 엑시트 리스크가 있는가?",
         ],
-        "action_keywords": ["매수/매도 타이밍", "포지션 조정", "손절 기준", "모니터링 주기"],
+        "action_keywords": ["매수/매도/관망 결론", "손절 기준", "목표가", "모니터링 주기"],
+        "output_format": "반드시 첫 문장에 매수/매도/관망 중 하나로 결론을 내릴 것"
     },
     "fund": {
         "persona": "펀드매니저",
-        "priority_metrics": ["샤프지수", "CAGR", "MDD", "칼마비율", "베타", "Tracking Error", "IR"],
+        "core_question": "이 종목을 포트폴리오에 편입해도 되는가? 편입 중이라면 비중을 유지/확대/축소해야 하는가?",
+        "priority_metrics": ["샤프지수", "MDD", "칼마비율", "베타", "유동비율", "부채비율", "영업이익률"],
         "key_questions": [
-            "위험 대비 수익률(샤프)이 벤치마크 대비 어떤가?",
-            "MDD 수준이 펀드 운용 기준 내인가?",
-            "베타가 시장 방향성과 일치하는가?",
-            "단일 종목 15% 초과 편입 등 컴플라이언스 위반이 있는가?",
-            "칼마비율 기준 위험 대비 성과가 충분한가?",
+            "편입/제외/비중축소 중 어느 결정이 맞는가?",
+            "컴플라이언스 기준(단일종목 15%)을 통과하는가?",
+            "위험 대비 수익률이 벤치마크보다 나은가?",
+            "재무 리스크가 펀드 전체 포트폴리오에 미치는 영향은?",
+            "현금흐름이 배당 지속 가능성을 뒷받침하는가?",
         ],
-        "action_keywords": ["리밸런싱 필요성", "헤지 전략", "컴플라이언스 점검", "벤치마크 대비 초과수익"],
+        "action_keywords": ["편입/제외/비중조정 결론", "리밸런싱 시점", "헤지 전략", "컴플라이언스 통과 여부"],
+        "output_format": "반드시 첫 문장에 편입적합/편입부적합/비중축소 중 하나로 결론을 내릴 것"
     },
     "financial": {
         "persona": "회계/재무담당자",
-        "priority_metrics": ["유동비율", "이자보상배율", "DSO", "부채비율", "OCF", "부도경보 스코어"],
+        "core_question": "이 거래처에 외상(신용거래)을 줘도 되는가? 현재 거래 한도를 유지해야 하는가?",
+        "priority_metrics": ["유동비율", "이자보상배율", "DSO", "부채비율", "OCF", "자기자본"],
         "key_questions": [
-            "유동비율이 100% 미만으로 단기 지급불능 위험이 있는가?",
-            "이자보상배율이 1 미만으로 이자조차 못 내는 상황인가?",
-            "DSO가 75일을 초과해 매출채권 회수가 지연되고 있는가?",
-            "자기자본이 마이너스(완전 자본잠식)인가?",
-            "OCF가 음수인데 영업이익은 양수인 흑자도산 위험은 없는가?",
-            "거래처의 PE 대주주 엑시트로 인한 경영 공백 리스크는 없는가?",
+            "신용거래 가능/불가/한도축소 중 어느 결정이 맞는가?",
+            "부도 가능성이 얼마나 높은가?",
+            "매출채권 회수가 지연될 리스크가 있는가?",
+            "자본잠식 또는 완전자본잠식 상태인가?",
+            "이자조차 못 내는 상황인가?",
         ],
-        "action_keywords": ["거래 한도 조정", "담보 강화", "월 단위 재무 모니터링", "법적 보호 조치"],
+        "action_keywords": ["신용거래 가능/불가 결론", "거래 한도 조정", "담보 요구 여부", "모니터링 주기"],
+        "output_format": "반드시 첫 문장에 신용거래 가능/조건부 가능/불가 중 하나로 결론을 내릴 것"
     },
     "analyst": {
         "persona": "증권 애널리스트",
-        "priority_metrics": ["PER", "PBR", "ROE", "영업이익률", "EV/EBITDA", "목표주가 괴리율"],
+        "core_question": "목표주가는 얼마인가? 투자의견은 매수/중립/매도 중 무엇인가?",
+        "priority_metrics": ["PER", "PBR", "ROE", "영업이익률 YoY", "EV/EBITDA", "부채비율"],
         "key_questions": [
-            "현재 PER이 업종 평균 대비 고평가/저평가인가?",
-            "ROE 추이가 개선되고 있는가?",
-            "영업이익률이 YoY 개선/악화되고 있는가?",
-            "EV/EBITDA 기준 적정 밸류에이션 범위인가?",
-            "목표주가 대비 현재가 괴리율이 매수 기회인가?",
+            "적정 목표주가는 얼마인가?",
+            "매수/중립/매도 투자의견은?",
+            "현재 주가가 고평가인가, 저평가인가?",
+            "수익성이 개선되고 있는가, 악화되고 있는가?",
+            "동종 업종 대비 밸류에이션 매력도는?",
         ],
-        "action_keywords": ["목표주가 상향/하향", "투자의견 변경", "업종 내 상대 매력도", "리비전 방향"],
+        "action_keywords": ["목표주가", "투자의견 매수/중립/매도", "업종 내 선호도", "리스크 요인"],
+        "output_format": "반드시 첫 문장에 투자의견(매수/중립/매도)과 목표주가 또는 밸류에이션 판단을 포함할 것"
     },
 }
 
 
 def generate_insight(metrics: dict, role: str, data_type: str, extra_data: dict = None, extra_context: dict = None) -> str:
-    """
-    직군별 맞춤 인사이트 생성
-    - extra_data: 기존 비표준 수치 컬럼 (하위 호환)
-    - extra_context: ai_mapper의 전체 파일 분석 결과 (신규)
-    """
     focus = ROLE_FOCUS.get(role, ROLE_FOCUS["analyst"])
 
-    # ── 트리거 조건 감지 ──────────────────────────
     triggers = _detect_triggers(metrics, role)
     triggers_text = "\n".join(f"- {t}" for t in triggers) if triggers else "- 특이 신호 없음"
-
-    # ── 계산된 표준 지표 포맷 ─────────────────────
     metrics_text = _format_metrics(metrics)
 
-    # ── extra_context (파일 고유 정보) ────────────
     context_text = ""
     if extra_context:
         parts = []
@@ -95,7 +92,6 @@ def generate_insight(metrics: dict, role: str, data_type: str, extra_data: dict 
         if parts:
             context_text = "\n\n## 파일 고유 정보 (반드시 활용)\n" + "\n\n".join(parts)
 
-    # ── 기존 extra_data 하위 호환 ─────────────────
     extra_data_text = ""
     if extra_data:
         lines = []
@@ -109,12 +105,17 @@ def generate_insight(metrics: dict, role: str, data_type: str, extra_data: dict 
             extra_data_text = "\n\n## 추가 데이터\n" + "\n".join(lines)
 
     prompt = f"""당신은 {focus['persona']} 전문가입니다.
-아래 데이터를 분석하여 {focus['persona']} 관점의 인사이트를 작성하세요.
+
+## 핵심 질문 (반드시 이 질문에 답해야 합니다)
+{focus['core_question']}
+
+## 출력 형식 요구사항
+{focus['output_format']}
 
 ## 우선 분석 지표
 {chr(10).join(f'- {m}' for m in focus['priority_metrics'])}
 
-## 반드시 답해야 할 핵심 질문
+## 세부 판단 기준
 {chr(10).join(f'- {q}' for q in focus['key_questions'])}
 
 ## 감지된 신호
@@ -126,12 +127,12 @@ def generate_insight(metrics: dict, role: str, data_type: str, extra_data: dict 
 {extra_data_text}
 
 ## 작성 원칙
-1. 수치 기반 작성 — 추측 표현("~것으로 보임") 금지
-2. 구체적 수치 명시 ("크게 하락" 대신 "전년 대비 -8.3%p 하락")
-3. 파일 고유 정보(텍스트 분석·특이사항)가 있으면 반드시 인사이트에 반영
-4. {focus['persona']} 관점에서만 서술 — 다른 직군 관점 섞지 말 것
-5. 액션 지향: {', '.join(focus['action_keywords'])} 관련 다음 행동 포함
-6. 5~7문장, 한국어로 작성
+1. 첫 문장: {focus['output_format']}
+2. 수치 기반 — 추측 표현 금지, 구체적 수치 반드시 포함
+3. {focus['persona']} 관점에서만 서술
+4. 액션 지향: {', '.join(focus['action_keywords'])}
+5. 5~7문장, 한국어로 작성
+6. **bold** 강조는 결론 문장에만 사용
 
 인사이트:"""
 
@@ -147,7 +148,6 @@ def generate_insight(metrics: dict, role: str, data_type: str, extra_data: dict 
 
 
 def _detect_triggers(metrics: dict, role: str) -> list:
-    """직군별 우선 트리거 감지"""
     triggers = []
     returns = metrics.get("returns", {})
     risk = metrics.get("risk", {})
@@ -156,11 +156,10 @@ def _detect_triggers(metrics: dict, role: str) -> list:
     credit = metrics.get("credit_risk", {})
     technical = metrics.get("technical", {})
 
-    # 공통 트리거
     if risk.get("mdd") and abs(risk["mdd"]) > 0.2:
         triggers.append(f"🚨 MDD {risk['mdd']*100:.1f}% — 최대낙폭 20% 초과")
     if credit.get("current_ratio") and credit["current_ratio"] < 100:
-        triggers.append(f"🚨 유동비율 {credit['current_ratio']:.1f}% — 100% 미만 유동성 위험")
+        triggers.append(f"🚨 유동비율 {credit['current_ratio']:.1f}% — 100% 미만")
     if credit.get("interest_coverage") and credit["interest_coverage"] < 1:
         triggers.append(f"🚨 이자보상배율 {credit['interest_coverage']:.2f}배 — 이자 미충당")
     if valuation.get("debt_ratio") and valuation["debt_ratio"] > 200:
@@ -168,16 +167,15 @@ def _detect_triggers(metrics: dict, role: str) -> list:
     if valuation.get("operating_margin") and valuation["operating_margin"] < 0:
         triggers.append(f"⚠️ 영업이익률 {valuation['operating_margin']:.1f}% — 영업 적자")
 
-    # 직군별 추가 트리거
     if role == "stock":
         if technical.get("rsi_signal") == "과매수":
             triggers.append(f"⚠️ RSI {technical.get('rsi')} — 과매수 구간")
         elif technical.get("rsi_signal") == "과매도":
-            triggers.append(f"📌 RSI {technical.get('rsi')} — 과매도 구간 (반등 가능성)")
+            triggers.append(f"📌 RSI {technical.get('rsi')} — 과매도 구간")
         if technical.get("cross_signal") == "데드크로스":
-            triggers.append("🚨 데드크로스 발생 — 단기 하락 추세 전환")
+            triggers.append("🚨 데드크로스 — 하락 추세 전환")
         elif technical.get("cross_signal") == "골든크로스":
-            triggers.append("📌 골든크로스 발생 — 단기 상승 추세 전환")
+            triggers.append("📌 골든크로스 — 상승 추세 전환")
 
     elif role == "fund":
         if risk_adj.get("sharpe") and risk_adj["sharpe"] < 0:
@@ -188,6 +186,9 @@ def _detect_triggers(metrics: dict, role: str) -> list:
     elif role == "financial":
         if credit.get("dso") and credit["dso"] > 75:
             triggers.append(f"⚠️ DSO {credit['dso']:.1f}일 — 매출채권 회수 75일 초과")
+        # 자기자본 마이너스 감지
+        if valuation.get("debt_ratio") and valuation["debt_ratio"] < 0:
+            triggers.append("🚨 부채비율 음수 — 완전 자본잠식 상태")
 
     elif role == "analyst":
         if valuation.get("roe") and valuation["roe"] < 5:
