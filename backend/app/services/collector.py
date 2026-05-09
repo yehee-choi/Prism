@@ -16,9 +16,47 @@ def _get_dart():
     return dart
 
 
+def _safe_end_date() -> str:
+    """
+    당일 데이터는 장 마감(15:30) + 약 1시간 후에 KRX에서 제공됨.
+    오전이거나 장중이면 전일 날짜를 반환해 빈 데이터 방지.
+    """
+    now = datetime.now()
+    # 16:30 이전이면 전일 사용
+    cutoff = now.replace(hour=16, minute=30, second=0, microsecond=0)
+    if now < cutoff:
+        target = now - timedelta(days=1)
+    else:
+        target = now
+
+    # 주말 보정: 토→금, 일→금
+    weekday = target.weekday()
+    if weekday == 5:   # 토요일
+        target -= timedelta(days=1)
+    elif weekday == 6: # 일요일
+        target -= timedelta(days=2)
+
+    return target.strftime("%Y%m%d")
+
+
 def get_stock_ohlcv(ticker: str, start: str, end: str) -> dict:
     try:
         df = stock.get_market_ohlcv(start, end, ticker)
+
+        # ── 빈 데이터 fallback: end를 하루씩 당겨서 재시도 ──
+        retry = 0
+        while df.empty and retry < 3:
+            retry += 1
+            end_dt = datetime.strptime(end, "%Y%m%d") - timedelta(days=retry)
+            # 주말 보정
+            while end_dt.weekday() >= 5:
+                end_dt -= timedelta(days=1)
+            end = end_dt.strftime("%Y%m%d")
+            df = stock.get_market_ohlcv(start, end, ticker)
+
+        if df.empty:
+            return {"success": False, "error": "데이터 없음 (KRX 미제공 기간)"}
+
         df = df.reset_index()
         df.columns = [str(c) for c in df.columns]
         col_map = {
@@ -38,6 +76,19 @@ def get_stock_ohlcv(ticker: str, start: str, end: str) -> dict:
 def get_stock_investor(ticker: str, start: str, end: str) -> dict:
     try:
         df = stock.get_market_net_purchases_of_equities(start, end, ticker)
+
+        retry = 0
+        while df.empty and retry < 3:
+            retry += 1
+            end_dt = datetime.strptime(end, "%Y%m%d") - timedelta(days=retry)
+            while end_dt.weekday() >= 5:
+                end_dt -= timedelta(days=1)
+            end = end_dt.strftime("%Y%m%d")
+            df = stock.get_market_net_purchases_of_equities(start, end, ticker)
+
+        if df.empty:
+            return {"success": False, "error": "수급 데이터 없음"}
+
         df = df.reset_index()
         df.columns = [str(c) for c in df.columns]
         col_map = {
@@ -55,6 +106,19 @@ def get_stock_investor(ticker: str, start: str, end: str) -> dict:
 def get_short_balance(ticker: str, start: str, end: str) -> dict:
     try:
         df = stock.get_shorting_balance_by_date(start, end, ticker)
+
+        retry = 0
+        while df.empty and retry < 3:
+            retry += 1
+            end_dt = datetime.strptime(end, "%Y%m%d") - timedelta(days=retry)
+            while end_dt.weekday() >= 5:
+                end_dt -= timedelta(days=1)
+            end = end_dt.strftime("%Y%m%d")
+            df = stock.get_shorting_balance_by_date(start, end, ticker)
+
+        if df.empty:
+            return {"success": False, "error": "공매도 데이터 없음"}
+
         df = df.reset_index()
         df.columns = [str(c) for c in df.columns]
         if "date" in df.columns:
@@ -123,8 +187,8 @@ def ticker_to_corp_code(ticker: str) -> str:
 
 
 def collect_all(ticker: str, period_days: int = 365) -> dict:
-    end = datetime.today().strftime("%Y%m%d")
-    start = (datetime.today() - timedelta(days=period_days)).strftime("%Y%m%d")
+    end = _safe_end_date()          # ← 핵심 변경: 당일 데이터 없을 때 자동 전일 사용
+    start = (datetime.strptime(end, "%Y%m%d") - timedelta(days=period_days)).strftime("%Y%m%d")
     year = str(datetime.today().year - 1)
 
     result = {

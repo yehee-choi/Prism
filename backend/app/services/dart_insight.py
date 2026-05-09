@@ -10,6 +10,10 @@ load_dotenv()
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 DART_KEY = lambda: os.getenv("DART_API_KEY", "")
 
+# ── 타임아웃 상수 ────────────────────────────────────────────
+DART_TIMEOUT = 8          # 개별 DART API 타임아웃 (초)
+PARALLEL_TIMEOUT = 12     # 병렬 작업 전체 대기 최대 (초)
+
 
 # ── 공통 헬퍼 ────────────────────────────────────────────────
 def _dart(endpoint: str, params: dict) -> dict:
@@ -17,9 +21,12 @@ def _dart(endpoint: str, params: dict) -> dict:
     try:
         r = requests.get(
             f"https://opendart.fss.or.kr/api/{endpoint}",
-            params=params, timeout=15,
+            params=params,
+            timeout=DART_TIMEOUT,   # ← 기존 15 → 8로 단축
         )
         return r.json()
+    except requests.exceptions.Timeout:
+        return {"status": "error", "message": "DART API 타임아웃"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -47,26 +54,29 @@ def _fmt(v) -> str:
     return f"{sign}{abs_v:,}"
 
 
-# ── 공시 목록 + Claude 요약 ───────────────────────────────────
+# ── 공시 목록 (dart_fss → OpenAPI 직접 호출로 교체) ─────────
 def get_recent_disclosures(corp_code: str, limit: int = 5) -> list:
+    """
+    dart_fss 라이브러리 대신 DART OpenAPI 직접 호출.
+    타임아웃 제어 가능 + 의존성 제거.
+    """
     try:
-        from app.services import dart_insight as _self  # noqa: avoid circular at module level
-
-        # dart_fss 방식 유지 (공시 목록)
-        import dart_fss as dart
-        dart.set_api_key(DART_KEY())
-        filings = dart.filings.search(
-            corp_code=corp_code, bgn_de="20240101", page_count=limit
-        )
-        if filings is None or len(filings.report_list) == 0:
+        data = _dart("list.json", {
+            "corp_code": corp_code,
+            "bgn_de": "20240101",
+            "page_count": limit,
+            "sort": "date",
+            "sort_mth": "desc",
+        })
+        if data.get("status") != "000" or not data.get("list"):
             return []
         return [
             {
-                "title": (item.report_nm or "").strip(),
-                "date": item.rcept_dt or "",
-                "corp_name": item.corp_name or "",
+                "title": item.get("report_nm", "").strip(),
+                "date": item.get("rcept_dt", ""),
+                "corp_name": item.get("corp_name", ""),
             }
-            for item in filings.report_list[:limit]
+            for item in data["list"][:limit]
         ]
     except Exception as e:
         print(f"[공시 수집 오류] {e}")
@@ -262,7 +272,6 @@ def get_full_dart_data(ticker: str) -> dict:
 
     corp_name = get_corp_name(ticker) or ticker
 
-    # 공시 목록 + 나머지 데이터 병렬 수집
     tasks = {
         "disclosures": lambda: get_recent_disclosures(corp_code),
         "financial": lambda: get_financial_data(corp_code),
@@ -273,23 +282,31 @@ def get_full_dart_data(ticker: str) -> dict:
     }
 
     results: dict = {}
+    # ↓ PARALLEL_TIMEOUT으로 전체 병렬 블록 제한
     with ThreadPoolExecutor(max_workers=6) as ex:
         futures = {ex.submit(fn): key for key, fn in tasks.items()}
-        for fut in as_completed(futures):
+        for fut in as_completed(futures, timeout=PARALLEL_TIMEOUT):
             key = futures[fut]
             try:
                 results[key] = fut.result()
             except Exception as e:
+                print(f"[{key} 수집 실패] {e}")
                 results[key] = None
 
-    # 공시 Claude 요약 (공시 목록 필요)
+    # 완료되지 않은 태스크 None 처리
+    for key in tasks:
+        if key not in results:
+            print(f"[{key}] 타임아웃으로 미완료 → None 처리")
+            results[key] = None
+
+    # 공시 Claude 요약
     disclosures = results.get("disclosures") or []
     if disclosures:
         summary = summarize_disclosures_with_claude(ticker, corp_name, disclosures)
     else:
         summary = {"success": False, "error": "공시 없음"}
 
-    # PE 대주주 감지 (Fund/Financial 탭용)
+    # PE 대주주 감지
     PE_KEYWORDS = ["인베스트먼트", "파트너스", "사모", "PEF", "펀드", "PE", "캐피탈"]
     pe_detected = False
     pe_keywords_found = []
@@ -305,19 +322,13 @@ def get_full_dart_data(ticker: str) -> dict:
         "corp_name": corp_name,
         "ticker": ticker,
         "corp_code": corp_code,
-        # 공시
         "disclosures": disclosures,
         **summary,
-        # 재무제표
         "financial": results.get("financial") or {},
-        # 대주주
         "shareholders": results.get("shareholders") or [],
         "pe_detected": pe_detected,
         "pe_keywords": pe_keywords_found,
-        # 임원
         "executives": results.get("executives") or [],
-        # 배당
         "dividends": results.get("dividends") or {},
-        # 주식 발행
         "shares": results.get("shares") or {},
     }

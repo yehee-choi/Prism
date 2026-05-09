@@ -130,8 +130,8 @@ def normalize_missing(df: pd.DataFrame) -> pd.DataFrame:
 
 def run_normalization(df: pd.DataFrame) -> dict:
     """전체 정규화 파이프라인 실행"""
-    df, unmapped = normalize_columns(df)
+    df = normalize_units(df)               # ← 순서 변경: 단위 먼저
+    df, unmapped = normalize_columns(df)   # ← 그 다음 rename
     df = normalize_date(df)
-    df = normalize_units(df)
     df = normalize_missing(df)
     return {"df": df, "unmapped_columns": unmapped}
