@@ -2,6 +2,7 @@ import KpiCard from '../common/KpiCard'
 import RiskScore from '../common/RiskScore'
 import StockChart from '../charts/StockChart'
 import InvestorChart from '../charts/InvestorChart'
+import { fmt } from '../../utils/fmt'
 
 interface Props {
   metrics: any
@@ -22,25 +23,39 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
   const riskScore = Math.round((mddScore + volScore) / 2)
 
   const warnings: string[] = []
-  if (risk?.mdd && Math.abs(risk.mdd) > 0.2) warnings.push(`MDD ${(risk.mdd * 100).toFixed(1)}% — 최대낙폭 경보`)
-  if (risk?.volatility && risk.volatility > 0.4) warnings.push(`변동성 ${(risk.volatility * 100).toFixed(1)}% — 고위험 구간`)
+  if (risk?.mdd && Math.abs(risk.mdd) > 0.2) warnings.push(`MDD ${fmt.pct(risk.mdd)} — 최대낙폭 경보`)
+  if (risk?.volatility && risk.volatility > 0.4) warnings.push(`변동성 ${fmt.pct(risk.volatility)} — 고위험 구간`)
   if (technical?.rsi && technical.rsi > 70) warnings.push(`RSI ${technical.rsi} — 과매수 구간`)
   if (technical?.rsi && technical.rsi < 30) warnings.push(`RSI ${technical.rsi} — 과매도 구간`)
   if (technical?.cross_signal === '데드크로스') warnings.push('데드크로스 감지 — 매도 신호')
 
+  // 실제 값이 있는지 체크
+  const hasReturns = fmt.hasValue(returns) && returns?.simple_return != null
+  const hasRisk = fmt.hasValue(risk) && risk?.mdd != null
+  const hasRiskAdj = fmt.hasValue(riskAdj) && riskAdj?.sharpe != null
+  const hasTechnical = fmt.hasValue(technical)
+
   return (
     <div className="flex flex-col gap-6">
+      {/* 데이터 없을 때 안내 */}
+      {!hasReturns && !hasRisk && (
+        <div className="bg-[#f5f2fe] border border-[#c7c4d7] rounded-xl p-4 text-center">
+          <p className="text-sm text-[#767586]">주가(종가) 데이터가 없어 수익률·위험 지표를 계산할 수 없습니다.</p>
+          <p className="text-xs text-[#c7c4d7] mt-1">종목코드 조회 또는 OHLCV 포함 파일을 업로드해주세요.</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-        {returns && <>
-          <KpiCard label="단순 수익률" value={`${(returns.simple_return * 100).toFixed(2)}%`} positive={returns.simple_return > 0} />
-          <KpiCard label="CAGR" value={`${(returns.cagr * 100).toFixed(2)}%`} positive={returns.cagr > 0} />
+        {hasReturns && <>
+          <KpiCard label="단순 수익률" value={fmt.pct(returns.simple_return)} positive={returns.simple_return > 0} />
+          <KpiCard label="CAGR" value={fmt.pct(returns.cagr)} positive={returns.cagr > 0} />
         </>}
-        {risk && <>
-          <KpiCard label="MDD" value={`${(risk.mdd * 100).toFixed(2)}%`} color="#3B82F6" />
-          <KpiCard label="변동성 (연율)" value={`${(risk.volatility * 100).toFixed(2)}%`} />
+        {hasRisk && <>
+          <KpiCard label="MDD" value={fmt.pct(risk.mdd)} color="#3B82F6" />
+          <KpiCard label="변동성 (연율)" value={fmt.pct(risk.volatility)} />
         </>}
-        {riskAdj && <KpiCard label="샤프지수" value={riskAdj.sharpe.toFixed(2)} positive={riskAdj.sharpe > 1} />}
-        {technical && <>
+        {hasRiskAdj && <KpiCard label="샤프지수" value={fmt.num(riskAdj.sharpe)} positive={riskAdj.sharpe > 1} />}
+        {hasTechnical && <>
           <KpiCard label="RSI (14)" value={technical.rsi ? `${technical.rsi}` : 'N/A'} positive={technical.rsi < 70} />
           <KpiCard label="RSI 신호" value={technical.rsi_signal || 'N/A'} positive={technical.rsi_signal === '과매도'} />
           <KpiCard label="크로스 신호" value={technical.cross_signal || 'N/A'} positive={technical.cross_signal === '골든크로스'} />
@@ -51,14 +66,16 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
         <RiskScore title="종합 리스크 스코어" score={riskScore} warnings={warnings} />
         <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
           <p className="text-[#767586] text-xs mb-3">VaR (95%)</p>
-          {risk?.var_95 !== undefined && <>
-            <p className="text-2xl font-bold text-[#3B82F6]">{(risk.var_95 * 100).toFixed(2)}%</p>
-            <p className="text-xs text-[#767586] mt-1">하루 최대 손실 예상 (95% 신뢰구간)</p>
-          </>}
+          {risk?.var_95 != null
+            ? <>
+                <p className="text-2xl font-bold text-[#3B82F6]">{fmt.pct(risk.var_95)}</p>
+                <p className="text-xs text-[#767586] mt-1">하루 최대 손실 예상 (95% 신뢰구간)</p>
+              </>
+            : <p className="text-sm text-[#c7c4d7]">주가 데이터 필요</p>
+          }
         </div>
       </div>
 
-      {/* 배당 현황 */}
       {dividends && Object.keys(dividends).length > 0 && (
         <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
           <p className="text-[#1b1b23] text-sm font-bold mb-3" style={{ fontFamily: 'Manrope' }}>
@@ -78,9 +95,6 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
               <div>
                 <p className="text-xs text-[#767586] mb-1">배당수익률</p>
                 <p className="text-lg font-bold text-[#10B981]">{dividends.yield_rate}%</p>
-                {dividends.prior_yield_rate && dividends.prior_yield_rate !== '-' && (
-                  <p className="text-xs text-[#767586]">전년 {dividends.prior_yield_rate}%</p>
-                )}
               </div>
             )}
             {dividends.payout_ratio && dividends.payout_ratio !== '-' && (

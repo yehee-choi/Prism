@@ -34,11 +34,24 @@ export async function collectAll(ticker: string, periodDays: number = 365): Prom
   return res.json()
 }
 
-export async function generateInsight(metrics: any, role: string, dataType: string = 'unknown', extraData: any = null): Promise<any> {
+// ── extra_context 파라미터 추가 ──────────────────────────────
+export async function generateInsight(
+  metrics: any,
+  role: string,
+  dataType: string = 'unknown',
+  extraData: any = null,
+  extraContext: any = null,   // ← 신규
+): Promise<any> {
   const res = await fetch(`${BASE_URL}/insight/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ metrics, role, data_type: dataType, extra_data: extraData }),
+    body: JSON.stringify({
+      metrics,
+      role,
+      data_type: dataType,
+      extra_data: extraData,
+      extra_context: extraContext,  // ← 신규
+    }),
   })
   return res.json()
 }
@@ -60,7 +73,6 @@ export type StockSearchResult = {
 
 export async function searchStock(query: string): Promise<StockSearchResult[]> {
   if (!query.trim()) return []
-
   const res = await fetch(`${BASE_URL}/stock/search?q=${encodeURIComponent(query)}`)
   return res.json()
 }

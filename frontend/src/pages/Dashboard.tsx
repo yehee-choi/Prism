@@ -107,10 +107,10 @@ export default function Dashboard() {
     await exportPdf('dashboard-content', `prism-${currentRole}-${label}`)
     setExporting(false)
   }
-  const fetchInsight = async (metrics: any, role: string, dt: string, extraData: any = null) => {
+  const fetchInsight = async (metrics: any, role: string, dt: string, extraData: any = null, extraContext: any = null) => {
     setInsightLoading(true)
     try {
-      const result = await generateInsight(metrics, role, dt, extraData)
+      const result = await generateInsight(metrics, role, dt, extraData, extraContext)
       setInsight(result.insight || '')
     } catch (e) { console.error(e) }
     setInsightLoading(false)
@@ -129,7 +129,7 @@ export default function Dashboard() {
         const analysis = await analyzeData(result.data, currentRole)
         setAnalyzeResult(analysis)
         if (result.data[0]?.close) setOhlcv(result.data)
-        await fetchInsight(analysis.metrics, currentRole, result.data_type, result.extra_data)
+        await fetchInsight(analysis.metrics, currentRole, result.data_type, result.extra_data, result.extra_context)
       }
     } catch (e) { console.error(e) }
     setLoading(false)
@@ -181,14 +181,18 @@ export default function Dashboard() {
         const analysis = await analyzeData(ohlcvResult.data, currentRole)
         setAnalyzeResult(analysis)
 
-        
+
         setDartLoading(true)
-        const [dart] = await Promise.all([
-          fetchDartFull(target),
-          fetchInsight(analysis.metrics, currentRole, 'stock'),
-        ])
+        // 변경 — DART 먼저 받고 insight에 전달
+        const dart = await fetchDartFull(target)
         setDartData(dart)
         setDartLoading(false)
+
+        await fetchInsight(analysis.metrics, currentRole, 'stock', null, {
+          file_summary: dart.corp_name ? `${dart.corp_name} DART 공시 데이터` : null,
+          text_analysis: dart.summary ? { '공시요약': dart.summary } : {},
+          anomalies: dart.pe_detected ? [`PE 대주주 감지: ${dart.pe_keywords?.join(', ')}`] : [],
+        })
       }
       if (investorResult.success && investorResult.data) {
         setInvestorData(investorResult.data)
