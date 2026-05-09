@@ -43,8 +43,8 @@ export default function FinancialDashboard({ metrics, dartData, rawData }: Props
           const currentLiability = Number(row.current_liability) || 0
           const opInc = Number(row.operating_income) || 0
           const interestExp = Number(row.interest_expense) || 0
-          const rev = Number(row.revenue) || 0
-          const ar = Number(row.accounts_receivable) || 0
+          //const rev = Number(row.revenue) || 0
+          //const ar = Number(row.accounts_receivable) || 0
           const totalDebt = Number(row.total_debt) || 0
           const equity = Number(row.equity) || 1
 

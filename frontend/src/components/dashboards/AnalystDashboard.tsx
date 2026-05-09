@@ -12,7 +12,7 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
   const returns = metrics?.returns
   const risk = metrics?.risk
   const valuation = metrics?.valuation
-  const credit = metrics?.credit_risk
+  //const credit = metrics?.credit_risk
   const targetPrice = metrics?.target_price
   const executives = dartData?.executives as any[] | undefined
   const shareholders = dartData?.shareholders as any[] | undefined
