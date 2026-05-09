@@ -261,7 +261,7 @@ export default function Dashboard() {
           switch (currentRole) {
             case 'stock': return <StockDashboard metrics={metrics} ohlcv={ohlcv} investorData={investorData} dartData={dartData} />
             case 'fund': return <FundDashboard metrics={metrics} ohlcv={ohlcv} dartData={dartData} />
-            case 'financial': return <FinancialDashboard metrics={metrics} dartData={dartData} />
+            case 'financial': return <FinancialDashboard metrics={metrics} dartData={dartData} rawData={uploadResult?.data} />
             case 'analyst': return <AnalystDashboard metrics={metrics} ohlcv={ohlcv} dartData={dartData} />
             default: return null
           }

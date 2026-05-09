@@ -21,7 +21,9 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
 
   const hasReturns = fmt.hasValue(returns) && returns?.simple_return != null
   const hasRisk = fmt.hasValue(risk) && risk?.mdd != null
-  const hasFinancial = fmt.hasValue(valuation) || fmt.hasValue(credit)
+
+  // Analyst 관점 재무 지표
+  const hasAnalystFinancial = valuation?.roe != null || valuation?.operating_margin != null || valuation?.ev_ebitda != null || valuation?.debt_ratio != null
 
   const getIS = (name: string) =>
     financial?.is_?.find((r: any) => r.account === name || r.account.startsWith(name))
@@ -41,36 +43,24 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
           <KpiCard label="MDD" value={fmt.pct(risk.mdd)} color="#3B82F6" />
           <KpiCard label="변동성" value={fmt.pct(risk.volatility)} />
         </>}
-        {valuation?.roe != null && (
-          <KpiCard label="ROE" value={fmt.num(valuation.roe, 1) + '%'} positive={valuation.roe > 0} />
-        )}
-        {valuation?.operating_margin != null && (
-          <KpiCard label="영업이익률" value={fmt.num(valuation.operating_margin, 1) + '%'} positive={valuation.operating_margin > 0} />
-        )}
       </div>
 
-      {/* 재무 데이터 있으면 표시 (애널리스트 관점) */}
-      {hasFinancial && (
+      {/* Analyst: ROE, 영업이익률, EV/EBITDA, 부채비율 */}
+      {hasAnalystFinancial && (
         <div className="flex flex-col gap-3">
-          <p className="text-[#1b1b23] text-sm font-medium">재무 지표 — 밸류에이션 판단 근거</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-            {valuation?.debt_ratio != null && (
-              <KpiCard label="부채비율" value={fmt.num(valuation.debt_ratio, 1) + '%'} positive={valuation.debt_ratio <= 200} sub="재무 레버리지" />
+          <p className="text-[#1b1b23] text-sm font-medium">밸류에이션 판단 근거</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            {valuation?.roe != null && (
+              <KpiCard label="ROE" value={fmt.num(valuation.roe, 1) + '%'} positive={valuation.roe > 0} sub="자본 효율성" />
             )}
-            {credit?.current_ratio != null && (
-              <KpiCard label="유동비율" value={fmt.num(credit.current_ratio, 1) + '%'} positive={credit.current_ratio >= 100} sub="단기 안전성" />
-            )}
-            {credit?.interest_coverage != null && (
-              <KpiCard label="이자보상배율" value={fmt.num(credit.interest_coverage, 2) + '배'} positive={credit.interest_coverage >= 1} sub="부채 상환 능력" />
+            {valuation?.operating_margin != null && (
+              <KpiCard label="영업이익률" value={fmt.num(valuation.operating_margin, 1) + '%'} positive={valuation.operating_margin > 0} sub="수익성" />
             )}
             {valuation?.ev_ebitda != null && (
               <KpiCard label="EV/EBITDA" value={fmt.num(valuation.ev_ebitda, 1) + 'x'} positive={valuation.ev_ebitda <= 10} sub="기준 10x 이하" />
             )}
-            {valuation?.psr != null && (
-              <KpiCard label="PSR" value={fmt.num(valuation.psr, 2) + 'x'} positive={valuation.psr <= 1} sub="기준 1x 이하" />
-            )}
-            {credit?.dso != null && (
-              <KpiCard label="DSO" value={fmt.num(credit.dso, 1) + '일'} positive={credit.dso <= 75} sub="매출채권 회수" />
+            {valuation?.debt_ratio != null && (
+              <KpiCard label="부채비율" value={fmt.num(valuation.debt_ratio, 1) + '%'} positive={valuation.debt_ratio <= 200} sub="재무 레버리지" />
             )}
           </div>
         </div>

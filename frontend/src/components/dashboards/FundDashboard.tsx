@@ -21,7 +21,9 @@ export default function FundDashboard({ metrics, ohlcv, dartData }: Props) {
   const hasReturns = fmt.hasValue(returns) && returns?.cumulative_return != null
   const hasRisk = fmt.hasValue(risk) && risk?.mdd != null
   const hasRiskAdj = fmt.hasValue(riskAdj) && riskAdj?.sharpe != null
-  const hasFinancial = fmt.hasValue(valuation) || fmt.hasValue(credit)
+
+  // Fund 매니저 관점 재무 지표
+  const hasFundFinancial = valuation?.operating_margin != null || credit?.current_ratio != null || valuation?.debt_ratio != null || credit?.interest_coverage != null
 
   const warnings: string[] = []
   if (hasRiskAdj && riskAdj.sharpe < 0) warnings.push('샤프지수 음수 — 무위험자산 수익률 미달')
@@ -30,7 +32,7 @@ export default function FundDashboard({ metrics, ohlcv, dartData }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      {!hasReturns && !hasRisk && !hasFinancial && (
+      {!hasReturns && !hasRisk && !hasFundFinancial && (
         <div className="bg-[#f5f2fe] border border-[#c7c4d7] rounded-xl p-4 text-center">
           <p className="text-sm text-[#767586]">수익률 계산에 필요한 주가(종가) 데이터가 없습니다.</p>
           <p className="text-xs text-[#c7c4d7] mt-1">종목코드 조회 또는 NAV/종가 포함 파일을 업로드해주세요.</p>
@@ -83,28 +85,22 @@ export default function FundDashboard({ metrics, ohlcv, dartData }: Props) {
         </div>
       </div>
 
-      {/* 재무 데이터 있으면 표시 (펀드매니저 관점) */}
-      {hasFinancial && (
+      {/* Fund 매니저: 영업이익률, 유동비율, 부채비율, 이자보상배율 */}
+      {hasFundFinancial && (
         <div className="flex flex-col gap-3">
           <p className="text-[#1b1b23] text-sm font-medium">재무 건전성 — 편입 적합성 판단</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {valuation?.operating_margin != null && (
               <KpiCard label="영업이익률" value={fmt.num(valuation.operating_margin, 1) + '%'} positive={valuation.operating_margin > 0} sub="수익성" />
-            )}
-            {valuation?.roe != null && (
-              <KpiCard label="ROE" value={fmt.num(valuation.roe, 1) + '%'} positive={valuation.roe > 0} sub="자본수익률" />
-            )}
-            {valuation?.debt_ratio != null && (
-              <KpiCard label="부채비율" value={fmt.num(valuation.debt_ratio, 1) + '%'} positive={valuation.debt_ratio <= 200} sub="기준 200% 이하" />
             )}
             {credit?.current_ratio != null && (
               <KpiCard label="유동비율" value={fmt.num(credit.current_ratio, 1) + '%'} positive={credit.current_ratio >= 100} sub="편입 적합성" />
             )}
+            {valuation?.debt_ratio != null && (
+              <KpiCard label="부채비율" value={fmt.num(valuation.debt_ratio, 1) + '%'} positive={valuation.debt_ratio <= 200} sub="재무 건전성" />
+            )}
             {credit?.interest_coverage != null && (
               <KpiCard label="이자보상배율" value={fmt.num(credit.interest_coverage, 2) + '배'} positive={credit.interest_coverage >= 1} sub="부채 상환 능력" />
-            )}
-            {credit?.dso != null && (
-              <KpiCard label="DSO" value={fmt.num(credit.dso, 1) + '일'} positive={credit.dso <= 75} sub="현금흐름 품질" />
             )}
           </div>
         </div>
