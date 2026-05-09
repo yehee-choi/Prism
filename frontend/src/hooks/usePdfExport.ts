@@ -13,8 +13,10 @@ export function usePdfExport() {
     const canvas = await html2canvas(element, {
       scale: 2,
       useCORS: true,
-      backgroundColor: '#fcf8ff',
+      backgroundColor: '#ffffff',
       logging: false,
+      windowWidth: element.scrollWidth,
+      windowHeight: element.scrollHeight,
     })
 
     const imgData = canvas.toDataURL('image/png')
