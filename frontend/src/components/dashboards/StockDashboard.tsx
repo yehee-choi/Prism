@@ -16,6 +16,8 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
   const risk = metrics?.risk
   const riskAdj = metrics?.risk_adjusted
   const technical = metrics?.technical
+  const valuation = metrics?.valuation
+  const credit = metrics?.credit_risk
   const dividends = dartData?.dividends
 
   const mddScore = risk?.mdd ? Math.min(100, Math.abs(risk.mdd) * 200) : 0
@@ -28,16 +30,16 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
   if (technical?.rsi && technical.rsi > 70) warnings.push(`RSI ${technical.rsi} — 과매수 구간`)
   if (technical?.rsi && technical.rsi < 30) warnings.push(`RSI ${technical.rsi} — 과매도 구간`)
   if (technical?.cross_signal === '데드크로스') warnings.push('데드크로스 감지 — 매도 신호')
+  if (credit?.current_ratio && credit.current_ratio < 100) warnings.push(`유동비율 ${fmt.num(credit.current_ratio, 1)}% — 유동성 위험`)
 
-  // 실제 값이 있는지 체크
   const hasReturns = fmt.hasValue(returns) && returns?.simple_return != null
   const hasRisk = fmt.hasValue(risk) && risk?.mdd != null
   const hasRiskAdj = fmt.hasValue(riskAdj) && riskAdj?.sharpe != null
   const hasTechnical = fmt.hasValue(technical)
+  const hasFinancial = fmt.hasValue(valuation) || fmt.hasValue(credit)
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 데이터 없을 때 안내 */}
       {!hasReturns && !hasRisk && (
         <div className="bg-[#f5f2fe] border border-[#c7c4d7] rounded-xl p-4 text-center">
           <p className="text-sm text-[#767586]">주가(종가) 데이터가 없어 수익률·위험 지표를 계산할 수 없습니다.</p>
@@ -76,6 +78,33 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
         </div>
       </div>
 
+      {/* 재무 데이터 있으면 표시 (주식 투자자 관점) */}
+      {hasFinancial && (
+        <div className="flex flex-col gap-3">
+          <p className="text-[#1b1b23] text-sm font-medium">재무 지표 — 투자 리스크 점검</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+            {valuation?.operating_margin != null && (
+              <KpiCard label="영업이익률" value={fmt.num(valuation.operating_margin, 1) + '%'} positive={valuation.operating_margin > 0} sub="수익성" />
+            )}
+            {valuation?.roe != null && (
+              <KpiCard label="ROE" value={fmt.num(valuation.roe, 1) + '%'} positive={valuation.roe > 0} sub="자본수익률" />
+            )}
+            {valuation?.debt_ratio != null && (
+              <KpiCard label="부채비율" value={fmt.num(valuation.debt_ratio, 1) + '%'} positive={valuation.debt_ratio <= 200} sub="기준 200% 이하" />
+            )}
+            {credit?.current_ratio != null && (
+              <KpiCard label="유동비율" value={fmt.num(credit.current_ratio, 1) + '%'} positive={credit.current_ratio >= 100} sub="기준 100% 이상" />
+            )}
+            {credit?.interest_coverage != null && (
+              <KpiCard label="이자보상배율" value={fmt.num(credit.interest_coverage, 2) + '배'} positive={credit.interest_coverage >= 1} sub="기준 1배 이상" />
+            )}
+            {credit?.dso != null && (
+              <KpiCard label="DSO" value={fmt.num(credit.dso, 1) + '일'} positive={credit.dso <= 75} sub="기준 75일 이하" />
+            )}
+          </div>
+        </div>
+      )}
+
       {dividends && Object.keys(dividends).length > 0 && (
         <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
           <p className="text-[#1b1b23] text-sm font-bold mb-3" style={{ fontFamily: 'Manrope' }}>
@@ -86,9 +115,6 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
               <div>
                 <p className="text-xs text-[#767586] mb-1">주당 현금배당금</p>
                 <p className="text-lg font-bold text-[#1b1b23]">{Number(dividends.cash_per_share).toLocaleString()}원</p>
-                {dividends.prior_cash_per_share && dividends.prior_cash_per_share !== '-' && (
-                  <p className="text-xs text-[#767586]">전년 {Number(dividends.prior_cash_per_share).toLocaleString()}원</p>
-                )}
               </div>
             )}
             {dividends.yield_rate && dividends.yield_rate !== '-' && (

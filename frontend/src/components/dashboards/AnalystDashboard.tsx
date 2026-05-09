@@ -12,6 +12,7 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
   const returns = metrics?.returns
   const risk = metrics?.risk
   const valuation = metrics?.valuation
+  const credit = metrics?.credit_risk
   const targetPrice = metrics?.target_price
   const executives = dartData?.executives as any[] | undefined
   const shareholders = dartData?.shareholders as any[] | undefined
@@ -20,6 +21,7 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
 
   const hasReturns = fmt.hasValue(returns) && returns?.simple_return != null
   const hasRisk = fmt.hasValue(risk) && risk?.mdd != null
+  const hasFinancial = fmt.hasValue(valuation) || fmt.hasValue(credit)
 
   const getIS = (name: string) =>
     financial?.is_?.find((r: any) => r.account === name || r.account.startsWith(name))
@@ -46,6 +48,33 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
           <KpiCard label="영업이익률" value={fmt.num(valuation.operating_margin, 1) + '%'} positive={valuation.operating_margin > 0} />
         )}
       </div>
+
+      {/* 재무 데이터 있으면 표시 (애널리스트 관점) */}
+      {hasFinancial && (
+        <div className="flex flex-col gap-3">
+          <p className="text-[#1b1b23] text-sm font-medium">재무 지표 — 밸류에이션 판단 근거</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+            {valuation?.debt_ratio != null && (
+              <KpiCard label="부채비율" value={fmt.num(valuation.debt_ratio, 1) + '%'} positive={valuation.debt_ratio <= 200} sub="재무 레버리지" />
+            )}
+            {credit?.current_ratio != null && (
+              <KpiCard label="유동비율" value={fmt.num(credit.current_ratio, 1) + '%'} positive={credit.current_ratio >= 100} sub="단기 안전성" />
+            )}
+            {credit?.interest_coverage != null && (
+              <KpiCard label="이자보상배율" value={fmt.num(credit.interest_coverage, 2) + '배'} positive={credit.interest_coverage >= 1} sub="부채 상환 능력" />
+            )}
+            {valuation?.ev_ebitda != null && (
+              <KpiCard label="EV/EBITDA" value={fmt.num(valuation.ev_ebitda, 1) + 'x'} positive={valuation.ev_ebitda <= 10} sub="기준 10x 이하" />
+            )}
+            {valuation?.psr != null && (
+              <KpiCard label="PSR" value={fmt.num(valuation.psr, 2) + 'x'} positive={valuation.psr <= 1} sub="기준 1x 이하" />
+            )}
+            {credit?.dso != null && (
+              <KpiCard label="DSO" value={fmt.num(credit.dso, 1) + '일'} positive={credit.dso <= 75} sub="매출채권 회수" />
+            )}
+          </div>
+        </div>
+      )}
 
       {(financial?.year || dividends?.year) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
@@ -174,20 +203,6 @@ export default function AnalystDashboard({ metrics, ohlcv, dartData }: Props) {
           </div>
         )}
       </div>
-
-      {(valuation?.ev_ebitda != null || valuation?.psr != null) && (
-        <div className="flex flex-col gap-3">
-          <p className="text-[#1b1b23] text-sm font-medium">밸류에이션 멀티플</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            {valuation.ev_ebitda != null && (
-              <KpiCard label="EV/EBITDA" value={fmt.num(valuation.ev_ebitda, 1) + 'x'} sub="기준 10x 이하" positive={valuation.ev_ebitda <= 10} />
-            )}
-            {valuation.psr != null && (
-              <KpiCard label="PSR" value={fmt.num(valuation.psr, 2) + 'x'} sub="기준 1x 이하" positive={valuation.psr <= 1} />
-            )}
-          </div>
-        </div>
-      )}
 
       <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
         <p className="text-[#1b1b23] text-sm font-medium mb-3">밸류에이션 분석</p>
