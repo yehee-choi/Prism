@@ -4,10 +4,15 @@ from datetime import datetime
 def validate(df: pd.DataFrame, skip_date_gap: bool = False) -> dict:
     warnings = []
     removed_rows = 0
-
-    if len(df) < 20:
+    # 재무제표(skip_date_gap=True)는 행수 체크 스킵
+    # 주가 데이터만 20행 기준 적용
+    if not skip_date_gap and len(df) < 20:
         warnings.append({"level": "error", "msg": f"데이터가 {len(df)}행으로 분석 불가 (최소 20행 필요)"})
         return {"df": df, "warnings": warnings, "removed_rows": removed_rows}
+    
+    # 재무제표는 행수 경고만 (분석은 계속)
+    if skip_date_gap and len(df) < 2:
+        warnings.append({"level": "warning", "msg": f"데이터가 {len(df)}행으로 부족합니다"})
 
     if "close" in df.columns:
         before = len(df)
