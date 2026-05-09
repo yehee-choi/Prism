@@ -37,25 +37,25 @@ export default function FinancialDashboard({ metrics, dartData, rawData }: Props
   // 시계열 차트 데이터 구성 (파일 업로드 시)
   const timeSeriesData = rawData && rawData.length >= 2
     ? rawData
-        .filter(row => row.date)
-        .map(row => {
-          const currentAsset = Number(row.current_asset) || 0
-          const currentLiability = Number(row.current_liability) || 0
-          const opInc = Number(row.operating_income) || 0
-          const interestExp = Number(row.interest_expense) || 0
-          //const rev = Number(row.revenue) || 0
-          //const ar = Number(row.accounts_receivable) || 0
-          const totalDebt = Number(row.total_debt) || 0
-          const equity = Number(row.equity) || 1
+      .filter(row => row.date)
+      .map(row => {
+        const currentAsset = Number(row.current_asset) || 0
+        const currentLiability = Number(row.current_liability) || 0
+        const opInc = Number(row.operating_income) || 0
+        const interestExp = Number(row.interest_expense) || 0
+        //const rev = Number(row.revenue) || 0
+        //const ar = Number(row.accounts_receivable) || 0
+        const totalDebt = Number(row.total_debt) || 0
+        const equity = Number(row.equity) || 1
 
-          return {
-            year: row.date?.slice(0, 4) || '',
-            유동비율: currentLiability !== 0 ? Math.round(currentAsset / currentLiability * 100 * 10) / 10 : null,
-            이자보상배율: interestExp !== 0 ? Math.round(opInc / interestExp * 100) / 100 : null,
-            부채비율: equity !== 0 ? Math.round(totalDebt / Math.abs(equity) * 100 * 10) / 10 : null,
-          }
-        })
-        .filter(d => d.year)
+        return {
+          year: row.date?.slice(0, 4) || '',
+          유동비율: currentLiability !== 0 ? Math.round(currentAsset / currentLiability * 100 * 10) / 10 : null,
+          이자보상배율: interestExp !== 0 ? Math.round(opInc / interestExp * 100) / 100 : null,
+          부채비율: equity !== 0 ? Math.round(totalDebt / Math.abs(equity) * 100 * 10) / 10 : null,
+        }
+      })
+      .filter(d => d.year)
     : null
 
   return (
@@ -164,9 +164,15 @@ export default function FinancialDashboard({ metrics, dartData, rawData }: Props
               <YAxis tick={{ fontSize: 11, fill: '#767586' }} />
               <Tooltip
                 contentStyle={{ borderRadius: 8, border: '1px solid #c7c4d7', fontSize: 12 }}
-                formatter={(value: any, name: string) => {
-                  if (name === '이자보상배율') return [`${value}배`, name]
-                  return [`${value}%`, name]
+                formatter={(value, name) => {
+                  const label = String(name ?? '')
+                  const displayValue = value == null ? '-' : value
+
+                  if (label === '이자보상배율') {
+                    return [`${displayValue}배`, label]
+                  }
+
+                  return [`${displayValue}%`, label]
                 }}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -191,8 +197,8 @@ export default function FinancialDashboard({ metrics, dartData, rawData }: Props
                 value={Math.abs(cashflow.ocf) >= 1_000_000_000_000
                   ? `${(cashflow.ocf / 1_000_000_000_000).toFixed(1)}조`
                   : Math.abs(cashflow.ocf) >= 100_000_000
-                  ? `${(cashflow.ocf / 100_000_000).toFixed(0)}억`
-                  : `${(cashflow.ocf / 1_000_000).toFixed(0)}백만`}
+                    ? `${(cashflow.ocf / 100_000_000).toFixed(0)}억`
+                    : `${(cashflow.ocf / 1_000_000).toFixed(0)}백만`}
                 positive={cashflow.ocf > 0} sub="영업현금흐름" />
             )}
             {cashflow.ccc !== undefined && (
