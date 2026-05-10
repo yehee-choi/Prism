@@ -10,19 +10,17 @@ load_dotenv()
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 DART_KEY = lambda: os.getenv("DART_API_KEY", "")
 
-# ── 타임아웃 상수 ────────────────────────────────────────────
-DART_TIMEOUT = 8          # 개별 DART API 타임아웃 (초)
-PARALLEL_TIMEOUT = 12     # 병렬 작업 전체 대기 최대 (초)
+DART_TIMEOUT = 8
+PARALLEL_TIMEOUT = 12
 
 
-# ── 공통 헬퍼 ────────────────────────────────────────────────
 def _dart(endpoint: str, params: dict) -> dict:
     params["crtfc_key"] = DART_KEY()
     try:
         r = requests.get(
             f"https://opendart.fss.or.kr/api/{endpoint}",
             params=params,
-            timeout=DART_TIMEOUT,   # ← 기존 15 → 8로 단축
+            timeout=DART_TIMEOUT,
         )
         return r.json()
     except requests.exceptions.Timeout:
@@ -54,12 +52,7 @@ def _fmt(v) -> str:
     return f"{sign}{abs_v:,}"
 
 
-# ── 공시 목록 (dart_fss → OpenAPI 직접 호출로 교체) ─────────
 def get_recent_disclosures(corp_code: str, limit: int = 5) -> list:
-    """
-    dart_fss 라이브러리 대신 DART OpenAPI 직접 호출.
-    타임아웃 제어 가능 + 의존성 제거.
-    """
     try:
         data = _dart("list.json", {
             "corp_code": corp_code,
@@ -123,7 +116,6 @@ def summarize_disclosures_with_claude(ticker: str, corp_name: str, disclosures: 
         return {"success": False, "error": str(e)}
 
 
-# ── 재무제표 ─────────────────────────────────────────────────
 _BS_KEYS = {"자산총계", "부채총계", "자본총계", "유동자산", "비유동자산", "유동부채", "비유동부채"}
 _IS_KEYS = {"매출액", "수익(매출액)", "영업이익", "영업이익(손실)", "당기순이익", "당기순이익(손실)"}
 _CF_PARTIAL = ["영업활동", "투자활동", "재무활동"]
@@ -161,7 +153,6 @@ def _parse_financials(items: list, year: str) -> dict:
     return {"year": year, "bs": bs, "is_": is_, "cf": cf}
 
 
-# ── 대주주 현황 ───────────────────────────────────────────────
 def get_major_shareholders(corp_code: str) -> list:
     for year in ["2025", "2024", "2023"]:
         data = _dart("majorstock.json", {
@@ -181,7 +172,6 @@ def get_major_shareholders(corp_code: str) -> list:
     return []
 
 
-# ── 임원 현황 ─────────────────────────────────────────────────
 def get_executives(corp_code: str) -> list:
     for year in ["2025", "2024", "2023"]:
         data = _dart("exctvSttus.json", {
@@ -201,29 +191,64 @@ def get_executives(corp_code: str) -> list:
     return []
 
 
-# ── 배당 현황 ─────────────────────────────────────────────────
+# ── 배당 현황 (강화된 버전) ───────────────────────────────────
 def get_dividends(corp_code: str) -> dict:
+    """
+    DART alotMatter API의 se 컬럼값이 버전/종목마다 다를 수 있어서
+    부분 문자열 매칭(in) 방식으로 처리.
+    매칭 실패 시 디버그 로그로 실제 se 값 출력.
+    """
     for year in ["2025", "2024", "2023"]:
         data = _dart("alotMatter.json", {
             "corp_code": corp_code, "bsns_year": year, "reprt_code": "11011"
         })
         if data.get("status") == "000" and data.get("list"):
+            items = data["list"]
+
+            # 디버그: 실제 se 값 출력 (배포 후 로그로 확인)
+            se_values = [item.get("se", "") for item in items]
+            print(f"[배당 DEBUG] corp_code={corp_code} year={year} se값들: {se_values}")
+
             result: dict = {"year": year}
-            for item in data["list"]:
-                se = item.get("se", "")
-                if "주당 현금배당금" in se:
-                    result["cash_per_share"] = item.get("thstrm", "-")
-                    result["prior_cash_per_share"] = item.get("frmtrm", "-")
-                elif "시가배당율" in se or "배당수익률" in se:
-                    result["yield_rate"] = item.get("thstrm", "-")
-                    result["prior_yield_rate"] = item.get("frmtrm", "-")
-                elif "현금배당성향" in se:
-                    result["payout_ratio"] = item.get("thstrm", "-")
-            return result
+
+            for item in items:
+                se = item.get("se", "").strip()
+                thstrm = item.get("thstrm", "-").strip() or "-"
+                frmtrm = item.get("frmtrm", "-").strip() or "-"
+
+                # 주당 현금배당금 — 띄어쓰기 없는 경우 포함
+                if any(k in se for k in ["주당 현금배당금", "주당현금배당금", "주당배당금"]):
+                    if "result_cash_per_share" not in result:  # 첫 번째 매칭만
+                        result["cash_per_share"] = thstrm
+                        result["prior_cash_per_share"] = frmtrm
+
+                # 배당수익률 — "시가배당율", "시가배당률", "배당수익률" 모두 처리
+                elif any(k in se for k in ["시가배당율", "시가배당률", "배당수익률", "배당율", "배당률"]):
+                    if "yield_rate" not in result:
+                        result["yield_rate"] = thstrm
+                        result["prior_yield_rate"] = frmtrm
+
+                # 현금배당성향
+                elif any(k in se for k in ["현금배당성향", "배당성향"]):
+                    if "payout_ratio" not in result:
+                        result["payout_ratio"] = thstrm
+
+            # 실제로 값이 하나라도 들어왔으면 반환
+            has_data = any(
+                result.get(k) and result.get(k) != "-"
+                for k in ["cash_per_share", "yield_rate", "payout_ratio"]
+            )
+            if has_data:
+                return result
+            else:
+                # 매칭된 값이 없으면 se 값들을 result에 담아서 반환 (프론트에서 확인용)
+                print(f"[배당 WARNING] 매칭 실패. 실제 se 값들: {se_values}")
+                result["_debug_se_values"] = se_values
+                return result
+
     return {}
 
 
-# ── 주식 발행 현황 ────────────────────────────────────────────
 def get_share_issuance(corp_code: str) -> dict:
     for year in ["2025", "2024", "2023"]:
         data = _dart("stockTotqySttus.json", {
@@ -245,9 +270,7 @@ def get_share_issuance(corp_code: str) -> dict:
     return {}
 
 
-# ── 통합 엔트리포인트 ────────────────────────────────────────
 def get_dart_insight(ticker: str) -> dict:
-    """기존 호환성 유지용 (공시 요약만)"""
     from app.services.corp_cache import get_corp_code, get_corp_name
     corp_code = get_corp_code(ticker)
     if not corp_code:
@@ -264,7 +287,6 @@ def get_dart_insight(ticker: str) -> dict:
 
 
 def get_full_dart_data(ticker: str) -> dict:
-    """모든 DART 데이터를 병렬로 수집하여 반환"""
     from app.services.corp_cache import get_corp_code, get_corp_name
     corp_code = get_corp_code(ticker)
     if not corp_code:
@@ -282,7 +304,6 @@ def get_full_dart_data(ticker: str) -> dict:
     }
 
     results: dict = {}
-    # ↓ PARALLEL_TIMEOUT으로 전체 병렬 블록 제한
     with ThreadPoolExecutor(max_workers=6) as ex:
         futures = {ex.submit(fn): key for key, fn in tasks.items()}
         for fut in as_completed(futures, timeout=PARALLEL_TIMEOUT):
@@ -293,20 +314,17 @@ def get_full_dart_data(ticker: str) -> dict:
                 print(f"[{key} 수집 실패] {e}")
                 results[key] = None
 
-    # 완료되지 않은 태스크 None 처리
     for key in tasks:
         if key not in results:
             print(f"[{key}] 타임아웃으로 미완료 → None 처리")
             results[key] = None
 
-    # 공시 Claude 요약
     disclosures = results.get("disclosures") or []
     if disclosures:
         summary = summarize_disclosures_with_claude(ticker, corp_name, disclosures)
     else:
         summary = {"success": False, "error": "공시 없음"}
 
-    # PE 대주주 감지
     PE_KEYWORDS = ["인베스트먼트", "파트너스", "사모", "PEF", "펀드", "PE", "캐피탈"]
     pe_detected = False
     pe_keywords_found = []

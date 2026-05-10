@@ -17,23 +17,17 @@ def _get_dart():
 
 
 def _safe_end_date() -> str:
-    """
-    당일 데이터는 장 마감(15:30) + 약 1시간 후에 KRX에서 제공됨.
-    오전이거나 장중이면 전일 날짜를 반환해 빈 데이터 방지.
-    """
     now = datetime.now()
-    # 16:30 이전이면 전일 사용
     cutoff = now.replace(hour=16, minute=30, second=0, microsecond=0)
     if now < cutoff:
         target = now - timedelta(days=1)
     else:
         target = now
 
-    # 주말 보정: 토→금, 일→금
     weekday = target.weekday()
-    if weekday == 5:   # 토요일
+    if weekday == 5:
         target -= timedelta(days=1)
-    elif weekday == 6: # 일요일
+    elif weekday == 6:
         target -= timedelta(days=2)
 
     return target.strftime("%Y%m%d")
@@ -43,12 +37,10 @@ def get_stock_ohlcv(ticker: str, start: str, end: str) -> dict:
     try:
         df = stock.get_market_ohlcv(start, end, ticker)
 
-        # ── 빈 데이터 fallback: end를 하루씩 당겨서 재시도 ──
         retry = 0
         while df.empty and retry < 3:
             retry += 1
             end_dt = datetime.strptime(end, "%Y%m%d") - timedelta(days=retry)
-            # 주말 보정
             while end_dt.weekday() >= 5:
                 end_dt -= timedelta(days=1)
             end = end_dt.strftime("%Y%m%d")
@@ -91,13 +83,46 @@ def get_stock_investor(ticker: str, start: str, end: str) -> dict:
 
         df = df.reset_index()
         df.columns = [str(c) for c in df.columns]
+
+        # ── 수급 컬럼명 방어 매핑 ──
+        # pykrx 버전에 따라 컬럼명이 다를 수 있어서 후보를 모두 처리
         col_map = {
-            "날짜": "date", "외국인합계": "foreign_net",
-            "기관합계": "institution_net", "개인": "individual_net"
+            # 날짜
+            "날짜": "date",
+            # 외국인
+            "외국인합계": "foreign_net",
+            "외국인": "foreign_net",
+            "외국인_합계": "foreign_net",
+            # 기관
+            "기관합계": "institution_net",
+            "기관": "institution_net",
+            "기관_합계": "institution_net",
+            # 개인
+            "개인": "individual_net",
         }
         df = df.rename(columns=col_map)
+
+        # 매핑 후에도 없으면 컬럼 목록에서 위치로 찾기 (fallback)
+        cols = list(df.columns)
+        if "foreign_net" not in cols:
+            # 보통 외국인이 첫 번째 순매수 컬럼
+            non_date = [c for c in cols if c != "date" and c != "ticker"]
+            if len(non_date) >= 1:
+                df = df.rename(columns={non_date[0]: "foreign_net"})
+        if "institution_net" not in cols:
+            non_date = [c for c in df.columns if c not in ("date", "ticker", "foreign_net", "individual_net")]
+            if len(non_date) >= 1:
+                df = df.rename(columns={non_date[0]: "institution_net"})
+
         if "date" in df.columns:
             df["date"] = df["date"].astype(str)
+
+        # 실제 수급 데이터가 전부 0인지 확인해서 로그
+        if "foreign_net" in df.columns and "institution_net" in df.columns:
+            total = df["foreign_net"].abs().sum() + df["institution_net"].abs().sum()
+            if total == 0:
+                return {"success": False, "error": "수급 데이터가 모두 0 (해당 종목 수급 미제공)"}
+
         return {"success": True, "data": df.to_dict(orient="records")}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -187,7 +212,7 @@ def ticker_to_corp_code(ticker: str) -> str:
 
 
 def collect_all(ticker: str, period_days: int = 365) -> dict:
-    end = _safe_end_date()          # ← 핵심 변경: 당일 데이터 없을 때 자동 전일 사용
+    end = _safe_end_date()
     start = (datetime.strptime(end, "%Y%m%d") - timedelta(days=period_days)).strftime("%Y%m%d")
     year = str(datetime.today().year - 1)
 
