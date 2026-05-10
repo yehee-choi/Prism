@@ -373,7 +373,7 @@ def calc_target_price(df: pd.DataFrame) -> dict:
 
 
 # ── 6. 직군별 통합 계산 ───────────────────────────
-def calculate_by_role(df: pd.DataFrame, role: str) -> dict:
+def calculate_by_role(df: pd.DataFrame, role: str,bm_returns=None) -> dict:
     result = {}
 
     # 주가 데이터 있으면 → 주가 계산 (role 무관)
@@ -391,7 +391,7 @@ def calculate_by_role(df: pd.DataFrame, role: str) -> dict:
 
     # role별 추가 계산
     if role == "fund":
-        result["portfolio_risk"] = calc_portfolio_risk(df)
+        result["portfolio_risk"] = calc_portfolio_risk(df, bm_returns or [])
     if role in ("analyst", "fund"):
         result["target_price"] = calc_target_price(df)
 

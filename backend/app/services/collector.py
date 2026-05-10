@@ -235,3 +235,12 @@ def collect_all(ticker: str, period_days: int = 365) -> dict:
         result["shareholders"] = {"success": False, "error": "corp_code 변환 실패"}
 
     return result
+
+def get_kospi_returns(start: str, end: str) -> list:
+    try:
+        df = stock.get_index_ohlcv(start, end, "1001")
+        if df.empty:
+            return []
+        return df["종가"].pct_change().dropna().tolist()
+    except:
+        return []

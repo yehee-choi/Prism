@@ -9,6 +9,7 @@ from app.services.collector import (
     get_stock_ohlcv,
     get_stock_investor,
     get_short_balance,
+    get_kospi_returns,
 )
 
 router = APIRouter(prefix="/stock", tags=["stock"])
@@ -49,3 +50,9 @@ def get_investor(ticker: str, start: str = "20240101", end: str = "20241231"):
 @router.get("/short/{ticker}")
 def get_short(ticker: str, start: str = "20240101", end: str = "20241231"):
     return get_short_balance(ticker, start, end)
+
+
+@router.get("/kospi")
+def get_kospi(start: str = "20240101", end: str = "20241231"):
+    returns = get_kospi_returns(start, end)
+    return {"success": True, "returns": returns}

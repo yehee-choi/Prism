@@ -221,15 +221,20 @@ export default function Dashboard() {
       prev.setFullYear(prev.getFullYear() - 1)
       const start = prev.toISOString().slice(0, 10).replace(/-/g, '')
 
-      const [ohlcvResult, investorResult] = await Promise.all([
+      const [ohlcvResult, investorResult, kospiRes] = await Promise.all([
         fetchStockOhlcv(target, start, end),
         fetchStockInvestor(target, start, end),
+        fetch(`https://prism-production-fee9.up.railway.app/stock/kospi?start=${start}&end=${end}`).then(r => r.json()),
       ])
 
       if (ohlcvResult.success && ohlcvResult.data) {
         setOhlcv(ohlcvResult.data)
 
-        const analysis = await analyzeData(ohlcvResult.data, currentRole)
+        const analysis = await analyzeData(
+          ohlcvResult.data,
+          currentRole,
+          kospiRes.success ? kospiRes.returns : [],
+        )
         setAnalyzeResult(analysis)
 
         setDartLoading(true)

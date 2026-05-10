@@ -9,6 +9,7 @@ router = APIRouter(prefix="/analyze", tags=["analyze"])
 class AnalyzeRequest(BaseModel):
     data: List[Dict[str, Any]]
     role: str  # stock / fund / financial / analyst
+    bm_returns: List[float] = []
 
 @router.post("/")
 def analyze(req: AnalyzeRequest):
@@ -19,7 +20,7 @@ def analyze(req: AnalyzeRequest):
         raise HTTPException(status_code=400, detail="role은 stock/fund/financial/analyst 중 하나여야 합니다")
 
     df = pd.DataFrame(req.data)
-    result = calculate_by_role(df, req.role)
+    result = calculate_by_role(df, req.role, req.bm_returns)
 
     return {
         "role": req.role,

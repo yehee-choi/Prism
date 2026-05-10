@@ -10,11 +10,11 @@ export async function uploadFile(file: File): Promise<any> {
   return res.json()
 }
 
-export async function analyzeData(data: any[], role: string): Promise<any> {
+export async function analyzeData(data: any[], role: string, bmReturns: number[] = []): Promise<any> {
   const res = await fetch(`${BASE_URL}/analyze/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data, role }),
+    body: JSON.stringify({ data, role, bm_returns: bmReturns }),
   })
   return res.json()
 }
