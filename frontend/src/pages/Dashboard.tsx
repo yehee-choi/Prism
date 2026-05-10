@@ -679,7 +679,7 @@ export default function Dashboard() {
             {/* 계정 버튼 */}
             {user ? (
               <div className="relative">
-                <button onClick={() => setShowHistory(v => !v)} className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-[#f5f2fe] transition-all">
+                <button onClick={() => setShowAccountMenu (v => !v)} className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-[#f5f2fe] transition-all">
                   <span className="material-symbols-outlined text-[#4648d4]">account_circle</span>
                   <span className="text-xs text-[#4648d4] font-bold hidden sm:inline" style={{ fontFamily: 'Manrope' }}>
                     {user.email?.split('@')[0]}
