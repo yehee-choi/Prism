@@ -74,6 +74,9 @@ export default function HistoryPanel({ onSelect }: Props) {
               </span>
             </div>
             <p className="text-sm font-bold text-[#1b1b23] truncate">{h.company_name || h.ticker}</p>
+            {h.ticker && h.company_name && (
+              <p className="text-[10px] text-[#767586] font-mono">{h.ticker}</p>
+            )}
             <p className="text-[10px] text-[#767586]">{new Date(h.created_at).toLocaleDateString('ko-KR')}</p>
           </div>
           <button

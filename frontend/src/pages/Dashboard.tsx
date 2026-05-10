@@ -127,7 +127,7 @@ export default function Dashboard() {
       await supabase.from('histories').insert({
         user_id: user.id,
         role: currentRole,
-        company_name: companyName || dart?.corp_name || '',
+        company_name: dart?.corp_name || companyName || '',
         ticker: ticker || '',
         insight: insightText,
         metrics,
