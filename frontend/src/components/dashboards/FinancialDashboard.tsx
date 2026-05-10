@@ -8,7 +8,7 @@ interface Props {
   rawData?: any[]
 }
 
-export default function FinancialDashboard({ metrics, dartData, rawData: _rawData }: Props)  {
+export default function FinancialDashboard({ metrics, dartData, rawData: _rawData }: Props) {
   const valuation = metrics?.valuation
   const credit = metrics?.credit_risk
   const cashflow = metrics?.cashflow
@@ -20,16 +20,30 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
   const getBS = (name: string) =>
     financial?.bs?.find((r: any) => r.account === name || r.account.startsWith(name))
 
+  const getCF = (name: string) =>
+    financial?.cf?.find((r: any) => r.account === name || r.account.startsWith(name))
+
+  // IS 항목
   const revenue = getIS('매출액') || getIS('수익(매출액)')
   const opIncome = getIS('영업이익') || getIS('영업이익(손실)')
   const netIncome = getIS('당기순이익') || getIS('당기순이익(손실)')
+  const interestExpenseItem = getIS('이자비용') || getIS('금융비용') || getIS('금융원가')
+
+  // BS 항목
   const totalAssets = getBS('자산총계')
   const totalLiab = getBS('부채총계')
   const totalEquity = getBS('자본총계')
   const currentAsset = getBS('유동자산')
   const currentLiab = getBS('유동부채')
+  const receivable = getBS('매출채권') || getBS('매출채권및기타채권') || getBS('매출채권및기타유동채권')
+  const inventory = getBS('재고자산')
 
-  // DART BS/IS 데이터로 지표 직접 계산 (파일 업로드 없이 종목코드 조회 시)
+  // CF 항목
+  const ocfItem = getCF('영업활동현금흐름') || getCF('영업활동')
+  const investingCF = getCF('투자활동현금흐름') || getCF('투자활동')
+  const financingCF = getCF('재무활동현금흐름') || getCF('재무활동')
+
+  // ── DART 데이터로 직접 지표 계산 ──────────────────────────
   const dartCurrentRatio =
     currentAsset?.current != null && currentLiab?.current != null && currentLiab.current !== 0
       ? currentAsset.current / currentLiab.current * 100
@@ -50,13 +64,32 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
       ? netIncome.current / totalEquity.current * 100
       : undefined
 
+  const dartInterestCoverage =
+    opIncome?.current != null && interestExpenseItem?.current != null && interestExpenseItem.current !== 0
+      ? opIncome.current / interestExpenseItem.current
+      : undefined
+
+  const dartDSO =
+    receivable?.current != null && revenue?.current != null && revenue.current !== 0
+      ? receivable.current / (revenue.current / 365)
+      : undefined
+
   // 파일 업로드 계산값 우선, 없으면 DART 직접 계산값 사용
   const currentRatio = credit?.current_ratio ?? dartCurrentRatio
   const debtRatio = valuation?.debt_ratio ?? dartDebtRatio
   const operatingMargin = valuation?.operating_margin ?? dartOperatingMargin
   const roe = valuation?.roe ?? dartROE
-  const interestCoverage = credit?.interest_coverage
-  const dso = credit?.dso
+  const interestCoverage = credit?.interest_coverage ?? dartInterestCoverage
+  const dso = credit?.dso ?? dartDSO
+  const ocfValue = cashflow?.ocf ?? ocfItem?.current
+
+  const fmtAmount = (v: number) => {
+    const abs = Math.abs(v)
+    const sign = v < 0 ? '-' : ''
+    if (abs >= 1_000_000_000_000) return `${sign}${(abs / 1_000_000_000_000).toFixed(1)}조`
+    if (abs >= 100_000_000) return `${sign}${(abs / 100_000_000).toFixed(0)}억`
+    return `${sign}${(abs / 1_000_000).toFixed(0)}백만`
+  }
 
   // 부도 조기경보 warnings
   const warnings: string[] = []
@@ -70,6 +103,8 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
     warnings.push(`CCC ${cashflow.ccc.toFixed(1)}일 — 운전자본 회수 지연`)
   if (debtRatio !== undefined && debtRatio > 200)
     warnings.push(`부채비율 ${debtRatio.toFixed(1)}% — 레버리지 과다`)
+  if (ocfValue !== undefined && ocfValue < 0)
+    warnings.push('영업현금흐름 음수 — 현금창출력 저하')
 
   const score = Math.min(100, warnings.length * 25)
 
@@ -92,6 +127,7 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
                   { label: '매출액', data: revenue },
                   { label: '영업이익', data: opIncome },
                   { label: '당기순이익', data: netIncome },
+                  { label: '금융비용', data: interestExpenseItem },
                 ].filter(r => r.data).map(({ label, data }) => (
                   <div key={label} className="flex items-center justify-between py-2">
                     <span className="text-xs text-[#767586]">{label}</span>
@@ -115,6 +151,8 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
                   { label: '자산총계', data: totalAssets },
                   { label: '부채총계', data: totalLiab },
                   { label: '자본총계', data: totalEquity },
+                  { label: '매출채권', data: receivable },
+                  { label: '재고자산', data: inventory },
                 ].filter(r => r.data).map(({ label, data }) => (
                   <div key={label} className="flex items-center justify-between py-2">
                     <span className="text-xs text-[#767586]">{label}</span>
@@ -135,12 +173,15 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
             <div className="mt-4 pt-4 border-t border-[#f0edf8]">
               <p className="text-xs font-bold text-[#767586] uppercase tracking-widest mb-2">현금흐름표 (CF)</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {financial.cf.slice(0, 3).map((item: any) => (
+                {[ocfItem, investingCF, financingCF].filter(Boolean).map((item: any) => (
                   <div key={item.account} className="bg-[#f5f2fe] rounded-lg p-3">
                     <p className="text-[10px] text-[#767586] mb-1">{item.account}</p>
                     <p className={`text-sm font-bold ${(item.current ?? 0) >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
                       {item.current_fmt}
                     </p>
+                    {item.prior_fmt && item.prior_fmt !== '-' && (
+                      <p className="text-[10px] text-[#767586]">전년 {item.prior_fmt}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -149,7 +190,7 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
         </div>
       )}
 
-      {/* KPI 카드 — DART 직접 계산값 포함 */}
+      {/* KPI 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
         {currentRatio !== undefined && (
           <KpiCard label="유동비율" value={`${currentRatio.toFixed(1)}%`}
@@ -159,14 +200,6 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
           <KpiCard label="부채비율" value={`${debtRatio.toFixed(1)}%`}
             positive={debtRatio <= 200} sub="기준 200% 이하" />
         )}
-        {operatingMargin !== undefined && (
-          <KpiCard label="영업이익률" value={`${operatingMargin.toFixed(1)}%`}
-            positive={operatingMargin > 0} sub="수익성" />
-        )}
-        {roe !== undefined && (
-          <KpiCard label="ROE" value={`${roe.toFixed(1)}%`}
-            positive={roe > 0} sub="자본수익률" />
-        )}
         {interestCoverage !== undefined && (
           <KpiCard label="이자보상배율" value={`${interestCoverage.toFixed(2)}배`}
             positive={interestCoverage >= 1} sub="기준 1배 이상" />
@@ -175,24 +208,25 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
           <KpiCard label="DSO" value={`${dso.toFixed(1)}일`}
             positive={dso <= 75} sub="기준 75일 이하" />
         )}
+        {operatingMargin !== undefined && (
+          <KpiCard label="영업이익률" value={`${operatingMargin.toFixed(1)}%`}
+            positive={operatingMargin > 0} sub="수익성" />
+        )}
+        {roe !== undefined && (
+          <KpiCard label="ROE" value={`${roe.toFixed(1)}%`}
+            positive={roe > 0} sub="자본수익률" />
+        )}
+        {ocfValue !== undefined && (
+          <KpiCard label="영업현금흐름" value={fmtAmount(ocfValue)}
+            positive={ocfValue > 0} sub="현금창출력" />
+        )}
       </div>
 
-      {/* 현금흐름 지표 — 파일 업로드 시에만 표시 */}
-      {cashflow && (cashflow.ocf !== undefined || cashflow.ccc !== undefined) && (
+      {/* 운전자본 지표 — 파일 업로드 시에만 추가 표시 */}
+      {cashflow && (cashflow.ccc !== undefined || cashflow.dpo !== undefined) && (
         <div className="flex flex-col gap-3">
-          <p className="text-[#1b1b23] text-sm font-medium">현금흐름 지표</p>
+          <p className="text-[#1b1b23] text-sm font-medium">운전자본 지표</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            {cashflow.ocf !== undefined && (
-              <KpiCard label="OCF"
-                value={
-                  Math.abs(cashflow.ocf) >= 1_000_000_000_000
-                    ? `${(cashflow.ocf / 1_000_000_000_000).toFixed(1)}조`
-                    : Math.abs(cashflow.ocf) >= 100_000_000
-                    ? `${(cashflow.ocf / 100_000_000).toFixed(0)}억`
-                    : `${(cashflow.ocf / 1_000_000).toFixed(0)}백만`
-                }
-                positive={cashflow.ocf > 0} sub="영업현금흐름" />
-            )}
             {cashflow.ccc !== undefined && (
               <KpiCard label="CCC" value={`${cashflow.ccc.toFixed(1)}일`}
                 positive={cashflow.ccc <= 90}
