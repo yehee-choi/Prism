@@ -241,6 +241,12 @@ def get_kospi_returns(start: str, end: str) -> list:
         df = stock.get_index_ohlcv(start, end, "1001")
         if df.empty:
             return []
-        return df["종가"].pct_change().dropna().tolist()
-    except:
+        df = df.reset_index()
+        df.columns = [str(c) for c in df.columns]
+        # 컬럼명이 한글로 올 수 있으므로 방어
+        close_col = "종가" if "종가" in df.columns else df.columns[-1]
+        returns = df[close_col].pct_change().dropna().tolist()
+        return returns
+    except Exception as e:
+        print(f"[코스피 수익률 오류] {e}")
         return []
