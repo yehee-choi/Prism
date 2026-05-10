@@ -170,6 +170,19 @@ export default function Dashboard() {
 
         if (result.data[0]?.close) setOhlcv(result.data)
 
+        const identifiedTicker = result.identified_ticker
+        const identifiedName = result.identified_name
+        if (identifiedTicker || identifiedName) {
+          setDartLoading(true)
+          try {
+            const target = identifiedTicker || identifiedName
+            const dart = await fetchDartFull(target)
+            setDartData(dart)
+          } catch (e) {
+            console.error(e)
+          }
+          setDartLoading(false)
+        }
         await fetchInsight(
           analysis.metrics,
           currentRole,
@@ -229,8 +242,8 @@ export default function Dashboard() {
         fetchStockOhlcv(target, start, end),
         fetchStockInvestor(target, start, end),
         fetch(`https://prism-production-fee9.up.railway.app/stock/kospi?start=${start}&end=${endYesterday}`).then(r => r.json()),
-      ]) 
-      
+      ])
+
       if (ohlcvResult.success && ohlcvResult.data) {
         setOhlcv(ohlcvResult.data)
 
@@ -529,6 +542,15 @@ export default function Dashboard() {
               <WarningBadge level={w.level} msg={w.msg} />
             </div>
           ))}
+
+          {uploadResult.dart_supplement?.corp_name && (
+            <p className="text-sm text-[#4648d4] mt-1">
+              🔗 DART 자동 보완: {uploadResult.dart_supplement.corp_name}
+              <span className="text-xs text-[#767586] ml-1">
+                ({uploadResult.dart_supplement.columns_added?.length}개 항목)
+              </span>
+            </p>
+          )}
         </div>
       )}
 
@@ -681,11 +703,10 @@ export default function Dashboard() {
               <button
                 key={r}
                 onClick={() => navigate(`/dashboard/${r}`)}
-                className={`flex items-center gap-1.5 px-3 md:px-5 py-3 text-[10px] md:text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex-shrink-0 ${
-                  r === currentRole
-                    ? 'border-[#4648d4] text-[#4648d4]'
-                    : 'border-transparent text-[#767586] hover:text-[#1b1b23]'
-                }`}
+                className={`flex items-center gap-1.5 px-3 md:px-5 py-3 text-[10px] md:text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex-shrink-0 ${r === currentRole
+                  ? 'border-[#4648d4] text-[#4648d4]'
+                  : 'border-transparent text-[#767586] hover:text-[#1b1b23]'
+                  }`}
                 style={{ fontFamily: 'Manrope' }}
               >
                 <span className="material-symbols-outlined text-sm">{c.icon}</span>

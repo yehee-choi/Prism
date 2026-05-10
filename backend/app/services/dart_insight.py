@@ -319,12 +319,17 @@ def get_dart_insight(ticker: str) -> dict:
 
 
 def get_full_dart_data(ticker: str) -> dict:
-    from app.services.corp_cache import get_corp_code, get_corp_name
-    corp_code = get_corp_code(ticker)
+    from app.services.corp_cache import get_corp_code, get_corp_name, get_corp_code_by_name
+    # 숫자면 종목코드, 아니면 회사명으로 처리
+    if ticker.isdigit():
+        corp_code = get_corp_code(ticker)
+        corp_name = get_corp_name(ticker) or ticker
+    else:
+        corp_code = get_corp_code_by_name(ticker)
+        corp_name = ticker
+
     if not corp_code:
         return {"success": False, "error": "종목코드에 해당하는 기업을 찾을 수 없습니다"}
-
-    corp_name = get_corp_name(ticker) or ticker
 
     tasks = {
         "disclosures": lambda: get_recent_disclosures(corp_code),

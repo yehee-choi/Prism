@@ -4,11 +4,12 @@ import zipfile
 import requests
 from io import BytesIO
 from xml.etree import ElementTree as ET
+from typing import Optional
 
 _name_to_ticker: dict = {}
 _ticker_to_name: dict = {}
-_ticker_to_corp: dict = {}   # stock_code -> corp_code (DART 고유번호)
-_name_to_corp: dict = {}  
+_ticker_to_corp: dict = {}
+_name_to_corp: dict = {}
 _cache_loaded = False
 _cache_lock = threading.Lock()
 _cache_error: str = ""
@@ -17,7 +18,7 @@ _cache_error: str = ""
 def load_corp_cache():
     global _name_to_ticker, _ticker_to_name, _ticker_to_corp
     global _cache_loaded, _cache_error
-    global _name_to_ticker, _ticker_to_name, _ticker_to_corp, _name_to_corp
+    global _name_to_corp
 
     if _cache_loaded:
         return
@@ -43,22 +44,24 @@ def load_corp_cache():
                 xml_bytes = zf.read("CORPCODE.xml")
 
             root = ET.fromstring(xml_bytes)
-            n2t, t2n, t2c = {}, {}, {}
+            n2t, t2n, t2c, n2c = {}, {}, {}, {}
+
             for corp in root.findall("list"):
                 stock_code = (corp.findtext("stock_code") or "").strip()
                 corp_name = (corp.findtext("corp_name") or "").strip()
                 corp_code = (corp.findtext("corp_code") or "").strip()
+
                 if corp_name and corp_code:
-                    _name_to_corp[corp_name] = corp_code  # 이름 → corp_code 직접 매핑
+                    n2c[corp_name] = corp_code
                     if stock_code:
                         n2t[corp_name] = stock_code
                         t2n[stock_code] = corp_name
                         t2c[stock_code] = corp_code
 
-
             _name_to_ticker = n2t
             _ticker_to_name = t2n
             _ticker_to_corp = t2c
+            _name_to_corp = n2c
             _cache_loaded = True
             _cache_error = ""
 
@@ -66,14 +69,47 @@ def load_corp_cache():
             _cache_error = str(e)
 
 
-def get_corp_code(ticker: str):
+def get_corp_code(ticker: str) -> Optional[str]:
     load_corp_cache()
     return _ticker_to_corp.get(ticker)
 
 
-def get_corp_name(ticker: str):
+def get_corp_name(ticker: str) -> Optional[str]:
     load_corp_cache()
     return _ticker_to_name.get(ticker)
+
+
+def get_corp_code_by_name(name: str) -> Optional[str]:
+    load_corp_cache()
+    if not name:
+        return None
+
+    # 1순위: 정확히 일치
+    if name in _name_to_corp:
+        return _name_to_corp[name]
+
+    # 2순위: 부분 일치 — name이 등록명에 포함되거나, 등록명이 name에 포함
+    matches = [
+        (k, v) for k, v in _name_to_corp.items()
+        if name in k or k in name
+    ]
+    if matches:
+        # 이름 길이가 짧은 것 우선 (더 정확한 매칭)
+        matches.sort(key=lambda x: len(x[0]))
+        matched_name, corp_code = matches[0]
+        print(f"[DART 이름 매칭] '{name}' → '{matched_name}' (corp_code: {corp_code})")
+        return corp_code
+
+    # 3순위: 공백/특수문자 제거 후 비교
+    clean_name = name.replace(" ", "").replace("(주)", "").replace("주식회사", "").strip()
+    for k, v in _name_to_corp.items():
+        clean_k = k.replace(" ", "").replace("(주)", "").replace("주식회사", "").strip()
+        if clean_name in clean_k or clean_k in clean_name:
+            print(f"[DART 이름 매칭 (정제)] '{name}' → '{k}' (corp_code: {v})")
+            return v
+
+    print(f"[DART 이름 매칭 실패] '{name}'에 해당하는 기업을 찾을 수 없음")
+    return None
 
 
 def search_by_name(query: str, limit: int = 10) -> list:
@@ -93,11 +129,6 @@ def cache_info() -> dict:
         "error": _cache_error,
         "total": len(_name_to_ticker),
     }
-    
-from typing import Optional
-def get_corp_code_by_name(name: str) -> Optional[str]:
-    load_corp_cache()
-    return _name_to_corp.get(name)
 
 
 # Background preload on import
