@@ -103,10 +103,10 @@ export default function Dashboard() {
   const [historySaved, setHistorySaved] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
       setUser(session?.user ?? null)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
@@ -422,7 +422,7 @@ export default function Dashboard() {
       {user && showHistory && (
         <div>
           <p className="text-sm font-bold text-[#1b1b23] uppercase tracking-widest mb-3" style={{ fontFamily: 'Manrope' }}>조회 히스토리</p>
-          <HistoryPanel onSelect={handleHistorySelect} currentRole={currentRole} />
+          <HistoryPanel onSelect={handleHistorySelect} />
         </div>
       )}
     </div>

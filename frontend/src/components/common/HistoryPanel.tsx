@@ -3,7 +3,6 @@ import { supabase, type History } from '../../lib/supabase'
 
 interface Props {
   onSelect: (history: History) => void
-  currentRole: string
 }
 
 const ROLE_LABELS: any = {
@@ -13,7 +12,7 @@ const ROLE_LABELS: any = {
   analyst: 'Analyst',
 }
 
-export default function HistoryPanel({ onSelect, currentRole }: Props) {
+export default function HistoryPanel({ onSelect }: Props) {
   const [histories, setHistories] = useState<History[]>([])
   const [loading, setLoading] = useState(true)
 
