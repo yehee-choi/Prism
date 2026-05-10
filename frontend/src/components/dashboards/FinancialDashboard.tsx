@@ -83,7 +83,6 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
       ? inventory.current / (revenue.current / 365)
       : undefined
 
-  // 차입금/EBITDA — 총차입금(단기+장기+사채+유동성장기) / 영업이익(EBITDA 근사)
   const totalBorrowing =
     (shortDebt?.current ?? 0) + (longDebt?.current ?? 0) +
     (bond?.current ?? 0) + (currentLongDebt?.current ?? 0)
@@ -112,6 +111,43 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
     return `${sign}${(abs / 1_000_000).toFixed(0)}백만`
   }
 
+  // ── 알트만 Z-Score 계산 ────────────────────────────────────
+  // Z = 1.2×(운전자본/총자산) + 1.4×(자본총계/총자산) + 3.3×(영업이익/총자산)
+  //   + 0.6×(자본총계/총부채) + 1.0×(매출액/총자산)
+  const zScore = (() => {
+    if (
+      currentAsset?.current == null || currentLiab?.current == null ||
+      totalAssets?.current == null || totalLiab?.current == null ||
+      opIncome?.current == null || revenue?.current == null ||
+      totalEquity?.current == null || totalLiab.current === 0 ||
+      totalAssets.current === 0
+    ) return null
+
+    const workingCapital = currentAsset.current - currentLiab.current
+    const ta = totalAssets.current
+    const equity = totalEquity.current
+    const ebit = opIncome.current
+    const debt = totalLiab.current
+    const sales = revenue.current
+
+    const z =
+      1.2 * (workingCapital / ta) +
+      1.4 * (equity / ta) +
+      3.3 * (ebit / ta) +
+      0.6 * (equity / debt) +
+      1.0 * (sales / ta)
+
+    return Math.round(z * 100) / 100
+  })()
+
+  // Z-Score 구간 판정
+  const zZone = (() => {
+    if (zScore === null) return null
+    if (zScore >= 2.99) return { label: '안전', color: '#10B981' }
+    if (zScore >= 1.81) return { label: '주의 (회색지대)', color: '#F59E0B' }
+    return { label: '위험', color: '#E84040' }
+  })()
+
   // 부도 조기경보 warnings
   const warnings: string[] = []
   if (currentRatio !== undefined && currentRatio < 100)
@@ -128,8 +164,16 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
     warnings.push('영업현금흐름 음수 — 현금창출력 저하')
   if (debtToEbitda !== undefined && debtToEbitda > 3)
     warnings.push(`차입금/EBITDA ${debtToEbitda.toFixed(1)}x — 상환 부담 과다`)
+  if (zScore !== null && zScore < 1.81)
+    warnings.push(`Z-Score ${zScore} — 부도 위험 구간`)
 
-  const score = Math.min(100, warnings.length * 25)
+  // Z-Score 기반 점수 (없으면 warnings 기반 fallback)
+  const score = (() => {
+    if (zScore === null) return Math.min(100, warnings.length * 25)
+    if (zScore >= 2.99) return 0
+    if (zScore >= 1.81) return 30
+    return Math.min(100, Math.round((1.81 - zScore) / 1.81 * 100) + 50)
+  })()
 
   return (
     <div className="flex flex-col gap-6">
@@ -265,6 +309,39 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
               <KpiCard label="DPO" value={`${cashflow.dpo.toFixed(1)}일`}
                 positive={cashflow.dpo >= 30} sub="기준 30일 이상" />
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 알트만 Z-Score */}
+      {zScore !== null && zZone && (
+        <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[#1b1b23] text-sm font-bold" style={{ fontFamily: 'Manrope' }}>
+              알트만 Z-Score
+            </p>
+            <span className="text-xs font-bold px-2 py-1 rounded-full"
+              style={{ color: zZone.color, background: `${zZone.color}18` }}>
+              {zZone.label}
+            </span>
+          </div>
+          <div className="flex items-end gap-3 mb-3">
+            <p className="text-3xl font-bold" style={{ color: zZone.color }}>{zScore}</p>
+            <p className="text-xs text-[#767586] mb-1">점</p>
+          </div>
+          <div className="flex gap-4 text-xs text-[#767586]">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-[#10B981] inline-block" />
+              2.99 이상 — 안전
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-[#F59E0B] inline-block" />
+              1.81~2.99 — 주의
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-[#E84040] inline-block" />
+              1.81 미만 — 위험
+            </span>
           </div>
         </div>
       )}
