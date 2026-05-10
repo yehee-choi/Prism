@@ -8,7 +8,7 @@ interface Props {
   rawData?: any[]
 }
 
-export default function FinancialDashboard({ metrics, dartData, rawData }: Props) {
+export default function FinancialDashboard({ metrics, dartData, rawData: _rawData }: Props)  {
   const valuation = metrics?.valuation
   const credit = metrics?.credit_risk
   const cashflow = metrics?.cashflow
