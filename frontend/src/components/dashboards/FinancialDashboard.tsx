@@ -37,6 +37,10 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
   const currentLiab = getBS('유동부채')
   const receivable = getBS('매출채권') || getBS('매출채권및기타채권') || getBS('매출채권및기타유동채권')
   const inventory = getBS('재고자산')
+  const shortDebt = getBS('단기차입금')
+  const longDebt = getBS('장기차입금')
+  const bond = getBS('사채')
+  const currentLongDebt = getBS('유동성장기부채')
 
   // CF 항목
   const ocfItem = getCF('영업활동현금흐름') || getCF('영업활동')
@@ -74,6 +78,21 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
       ? receivable.current / (revenue.current / 365)
       : undefined
 
+  const dartDIO =
+    inventory?.current != null && revenue?.current != null && revenue.current !== 0
+      ? inventory.current / (revenue.current / 365)
+      : undefined
+
+  // 차입금/EBITDA — 총차입금(단기+장기+사채+유동성장기) / 영업이익(EBITDA 근사)
+  const totalBorrowing =
+    (shortDebt?.current ?? 0) + (longDebt?.current ?? 0) +
+    (bond?.current ?? 0) + (currentLongDebt?.current ?? 0)
+
+  const dartDebtToEbitda =
+    opIncome?.current != null && opIncome.current > 0 && totalBorrowing > 0
+      ? totalBorrowing / opIncome.current
+      : undefined
+
   // 파일 업로드 계산값 우선, 없으면 DART 직접 계산값 사용
   const currentRatio = credit?.current_ratio ?? dartCurrentRatio
   const debtRatio = valuation?.debt_ratio ?? dartDebtRatio
@@ -81,6 +100,8 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
   const roe = valuation?.roe ?? dartROE
   const interestCoverage = credit?.interest_coverage ?? dartInterestCoverage
   const dso = credit?.dso ?? dartDSO
+  const dio = dartDIO
+  const debtToEbitda = dartDebtToEbitda
   const ocfValue = cashflow?.ocf ?? ocfItem?.current
 
   const fmtAmount = (v: number) => {
@@ -105,6 +126,8 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
     warnings.push(`부채비율 ${debtRatio.toFixed(1)}% — 레버리지 과다`)
   if (ocfValue !== undefined && ocfValue < 0)
     warnings.push('영업현금흐름 음수 — 현금창출력 저하')
+  if (debtToEbitda !== undefined && debtToEbitda > 3)
+    warnings.push(`차입금/EBITDA ${debtToEbitda.toFixed(1)}x — 상환 부담 과다`)
 
   const score = Math.min(100, warnings.length * 25)
 
@@ -119,7 +142,6 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
             <span className="text-[10px] text-[#767586] font-normal ml-2">DART {financial.year}년 사업보고서</span>
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-            {/* 손익계산서 */}
             <div>
               <p className="text-xs font-bold text-[#767586] uppercase tracking-widest mb-2">손익계산서 (IS)</p>
               <div className="flex flex-col divide-y divide-[#f0edf8]">
@@ -143,7 +165,6 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
                 ))}
               </div>
             </div>
-            {/* 재무상태표 */}
             <div>
               <p className="text-xs font-bold text-[#767586] uppercase tracking-widest mb-2">재무상태표 (BS)</p>
               <div className="flex flex-col divide-y divide-[#f0edf8]">
@@ -168,7 +189,6 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
             </div>
           </div>
 
-          {/* 현금흐름표 */}
           {financial.cf && financial.cf.length > 0 && (
             <div className="mt-4 pt-4 border-t border-[#f0edf8]">
               <p className="text-xs font-bold text-[#767586] uppercase tracking-widest mb-2">현금흐름표 (CF)</p>
@@ -207,6 +227,14 @@ export default function FinancialDashboard({ metrics, dartData, rawData: _rawDat
         {dso !== undefined && (
           <KpiCard label="DSO" value={`${dso.toFixed(1)}일`}
             positive={dso <= 75} sub="기준 75일 이하" />
+        )}
+        {dio !== undefined && (
+          <KpiCard label="재고회전일수" value={`${dio.toFixed(1)}일`}
+            positive={dio <= 60} sub="기준 60일 이하" />
+        )}
+        {debtToEbitda !== undefined && (
+          <KpiCard label="차입금/EBITDA" value={`${debtToEbitda.toFixed(1)}x`}
+            positive={debtToEbitda <= 3} sub="기준 3x 이하" />
         )}
         {operatingMargin !== undefined && (
           <KpiCard label="영업이익률" value={`${operatingMargin.toFixed(1)}%`}

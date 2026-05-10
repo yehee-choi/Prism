@@ -1,5 +1,3 @@
-// import ReactApexChart from 'react-apexcharts'
-
 interface Props {
   currentRatio?: number
   interestCoverage?: number
@@ -17,6 +15,23 @@ export default function CreditRiskChart({ currentRatio, interestCoverage, dso, d
 
   if (indicators.length === 0) return null
 
+  const getBarWidth = (name: string, value: number): number => {
+    switch (name) {
+      // 높을수록 좋음 → 값이 클수록 막대 길어짐
+      case '유동비율':
+        return Math.min(100, (value / 300) * 100)       // 300% 이상이면 최대
+      case '이자보상배율':
+        return Math.min(100, (value / 10) * 100)        // 10배 이상이면 최대
+      // 낮을수록 좋음 → 값이 클수록 막대 길어짐 (위험도 표현)
+      case 'DSO':
+        return Math.min(100, (value / 150) * 100)       // 150일이면 최대 위험
+      case '부채비율':
+        return Math.min(100, (value / 400) * 100)       // 400%이면 최대 위험
+      default:
+        return Math.min(100, (value / (200)) * 100)
+    }
+  }
+
   return (
     <div className="bg-white border border-[#c7c4d7] rounded-xl p-4">
       <p className="text-[#1b1b23] text-sm font-medium mb-4">신용 위험 지표</p>
@@ -24,6 +39,7 @@ export default function CreditRiskChart({ currentRatio, interestCoverage, dso, d
         {indicators.map((ind, i) => {
           const isDanger = ind.danger(ind.value!)
           const color = isDanger ? '#E84040' : '#10B981'
+          const barWidth = getBarWidth(ind.name, ind.value!)
           return (
             <div key={i}>
               <div className="flex justify-between mb-1">
@@ -37,11 +53,8 @@ export default function CreditRiskChart({ currentRatio, interestCoverage, dso, d
               </div>
               <div className="w-full bg-[#f5f2fe] rounded-full h-1.5">
                 <div
-                  className="h-1.5 rounded-full"
-                  style={{
-                    width: `${Math.min(100, (ind.value! / (ind.benchmark * 2)) * 100)}%`,
-                    background: color
-                  }}
+                  className="h-1.5 rounded-full transition-all duration-500"
+                  style={{ width: `${barWidth}%`, background: color }}
                 />
               </div>
             </div>
