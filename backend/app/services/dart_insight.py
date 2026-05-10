@@ -117,16 +117,21 @@ def summarize_disclosures_with_claude(ticker: str, corp_name: str, disclosures: 
 
 
 _BS_KEYS = {
+    # 주요 합계
     "자산총계", "부채총계", "자본총계",
     "유동자산", "비유동자산", "유동부채", "비유동부채",
+    # DSO 계산용
     "매출채권", "매출채권및기타채권", "매출채권및기타유동채권",
+    # 재고자산
     "재고자산",
-    "단기차입금", "장기차입금", "사채",
+    # 차입금
+    "단기차입금", "장기차입금", "사채", "유동성장기부채",
 }
 _IS_KEYS = {
     "매출액", "수익(매출액)",
     "영업이익", "영업이익(손실)",
     "당기순이익", "당기순이익(손실)",
+    # 이자보상배율 계산용
     "이자비용", "금융비용", "금융원가",
 }
 _CF_PARTIAL = ["영업활동", "투자활동", "재무활동", "현금흐름"]
@@ -134,8 +139,21 @@ _CF_PARTIAL = ["영업활동", "투자활동", "재무활동", "현금흐름"]
 
 def get_financial_data(corp_code: str) -> dict:
     for year in ["2025", "2024", "2023"]:
-        data = _dart("fnlttSinglAcnt.json", {
-            "corp_code": corp_code, "bsns_year": year, "reprt_code": "11011"
+        # fnlttSinglAcntAll: 전체 계정과목 반환 (매출채권, 재고자산, 이자비용 등 포함)
+        data = _dart("fnlttSinglAcntAll.json", {
+            "corp_code": corp_code,
+            "bsns_year": year,
+            "reprt_code": "11011",
+            "fs_div": "CFS",   # 연결재무제표
+        })
+        if data.get("status") == "000" and data.get("list"):
+            return _parse_financials(data["list"], year)
+        # 연결재무제표 없으면 별도재무제표 시도
+        data = _dart("fnlttSinglAcntAll.json", {
+            "corp_code": corp_code,
+            "bsns_year": year,
+            "reprt_code": "11011",
+            "fs_div": "OFS",   # 별도재무제표
         })
         if data.get("status") == "000" and data.get("list"):
             return _parse_financials(data["list"], year)
