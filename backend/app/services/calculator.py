@@ -102,10 +102,14 @@ def calc_risk_adjusted(df: pd.DataFrame) -> dict:
 
     sharpe = (ann_return - RISK_FREE_RATE) / ann_vol if ann_vol > 0 else 0
 
+    risk = calc_risk(df)
+    calmar = risk.get("calmar", None)
+    
     return {
         "sharpe": round(sharpe, 4),
         "ann_return": round(ann_return, 4),
         "ann_volatility": round(ann_vol, 4),
+        "calmar": calmar,
     }
 
 
@@ -323,7 +327,7 @@ def calc_portfolio_risk(df: pd.DataFrame, bm_returns: list = None) -> dict:
         ann_excess = float(np.mean(excess) * 252)
         result["ir"] = round(ann_excess / tracking_error, 4) if tracking_error > 0 else 0
     else:
-        result["beta"] = 1.0
+        result["beta"] = None
         result["tracking_error"] = None
         result["ir"] = None
 
