@@ -114,7 +114,7 @@ export default function StockDashboard({ metrics, ohlcv, investorData, dartData 
             {dividends.cash_per_share && dividends.cash_per_share !== '-' && (
               <div>
                 <p className="text-xs text-[#767586] mb-1">주당 현금배당금</p>
-                <p className="text-lg font-bold text-[#1b1b23]">{Number(dividends.cash_per_share).toLocaleString()}원</p>
+                <p className="text-lg font-bold text-[#1b1b23]">{Number(String(dividends.cash_per_share).replace(/,/g, '')).toLocaleString()}원</p>
               </div>
             )}
             {dividends.yield_rate && dividends.yield_rate !== '-' && (
