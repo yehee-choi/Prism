@@ -216,19 +216,22 @@ def get_dividends(corp_code: str) -> dict:
                 thstrm = item.get("thstrm", "-").strip() or "-"
                 frmtrm = item.get("frmtrm", "-").strip() or "-"
 
-                # 주당 현금배당금 — 띄어쓰기 없는 경우 포함
+                # 주당 현금배당금
+                # 실제 DART 값: '주당 현금배당금(원)', '주당현금배당금(원)' 등
                 if any(k in se for k in ["주당 현금배당금", "주당현금배당금", "주당배당금"]):
-                    if "result_cash_per_share" not in result:  # 첫 번째 매칭만
+                    if "cash_per_share" not in result:
                         result["cash_per_share"] = thstrm
                         result["prior_cash_per_share"] = frmtrm
 
-                # 배당수익률 — "시가배당율", "시가배당률", "배당수익률" 모두 처리
-                elif any(k in se for k in ["시가배당율", "시가배당률", "배당수익률", "배당율", "배당률"]):
+                # 배당수익률
+                # 실제 DART 값: '현금배당수익률(%)', '시가배당율', '배당수익률(%)' 등
+                elif any(k in se for k in ["현금배당수익률", "시가배당율", "시가배당률", "배당수익률", "배당율", "배당률"]):
                     if "yield_rate" not in result:
                         result["yield_rate"] = thstrm
                         result["prior_yield_rate"] = frmtrm
 
                 # 현금배당성향
+                # 실제 DART 값: '(연결)현금배당성향(%)', '현금배당성향(%)' 등
                 elif any(k in se for k in ["현금배당성향", "배당성향"]):
                     if "payout_ratio" not in result:
                         result["payout_ratio"] = thstrm
