@@ -102,6 +102,8 @@ export default function Dashboard() {
   const [showHistory, setShowHistory] = useState(false)
   const [historySaved, setHistorySaved] = useState(false)
 
+  const [showAccountMenu, setShowAccountMenu] = useState(false)
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
       setUser(session?.user ?? null)
@@ -683,14 +685,14 @@ export default function Dashboard() {
                     {user.email?.split('@')[0]}
                   </span>
                 </button>
-                {showHistory && (
+                {showAccountMenu && (
                   <div className="absolute right-0 top-10 w-56 bg-white border border-[#c7c4d7] rounded-xl shadow-xl z-50 p-3">
                     <p className="text-xs text-[#767586] mb-2 truncate">{user.email}</p>
-                    <button onClick={() => { setShowHistory(false); navigate(`/dashboard/${currentRole}`) }}
+                    <button onClick={() => { setShowHistory(true); setShowAccountMenu(false) }}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#f5f2fe] text-xs text-[#1b1b23] transition-all mb-1">
                       <span className="material-symbols-outlined text-sm">history</span> 조회 히스토리
                     </button>
-                    <button onClick={handleLogout}
+                    <button onClick={() => { handleLogout(); setShowAccountMenu(false) }}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-red-50 text-xs text-[#E84040] transition-all">
                       <span className="material-symbols-outlined text-sm">logout</span> 로그아웃
                     </button>
