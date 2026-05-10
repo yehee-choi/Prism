@@ -57,6 +57,14 @@ async def upload_file(file: UploadFile = File(...)):
         first_name = df["name"].dropna().astype(str).iloc[0] if not df["name"].dropna().empty else None
         if first_name:
             identified_name = first_name
+    # identified_ticker와 identified_name 교차검증
+    # ticker가 있어도 회사명과 불일치하면 무효화
+    if identified_ticker and identified_name:
+        from app.services.corp_cache import get_corp_name
+        actual_name = get_corp_name(identified_ticker)
+        if actual_name and identified_name not in actual_name and actual_name not in identified_name:
+            print(f"[교차검증 실패] ticker={identified_ticker}({actual_name}) ≠ name={identified_name} → ticker 무효화")
+            identified_ticker = None
 
     # ── DART 재무제표 자동 보완 ────────────────────
     dart_supplement = {}
