@@ -310,7 +310,10 @@ def calc_portfolio_risk(df: pd.DataFrame, bm_returns: list = None) -> dict:
     result = {}
     daily_returns = close.pct_change().dropna()
 
-    if bm_returns and len(bm_returns) == len(daily_returns):
+    if bm_returns and len(bm_returns) > 0:
+        min_len = min(len(daily_returns), len(bm_returns))
+        daily_returns = daily_returns.iloc[-min_len:]
+        bm_returns = bm_returns[-min_len:]
         bm = pd.Series(bm_returns)
         # 베타
         cov = np.cov(daily_returns, bm)[0][1]
