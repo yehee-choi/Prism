@@ -9,7 +9,11 @@ import FinancialDashboard from '../components/dashboards/FinancialDashboard'
 import FundDashboard from '../components/dashboards/FundDashboard'
 import AnalystDashboard from '../components/dashboards/AnalystDashboard'
 import DartInsight from '../components/common/DartInsight'
+import AuthModal from '../components/common/AuthModal'
+import HistoryPanel from '../components/common/HistoryPanel'
 import { fmt } from '../utils/fmt'
+import { supabase } from '../lib/supabase'
+import type { User } from '@supabase/supabase-js'
 import {
   uploadFile,
   analyzeData,
@@ -30,7 +34,6 @@ const ROLE_CONFIG = {
   analyst: { label: 'Analyst', icon: 'query_stats', color: '#9333EA' },
 }
 
-// ── PDF 리포트 헬퍼 ───────────────────────────────────────────
 const R = {
   row: (label: string, value: string, warn?: boolean) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f0edf8' }}>
@@ -55,9 +58,7 @@ const R = {
     </div>
   ),
   grid: (cols: number, children: React.ReactNode) => (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 8 }}>
-      {children}
-    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 8 }}>{children}</div>
   ),
   badge: (text: string, color: string) => (
     <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: `${color}18`, color }}>{text}</span>
@@ -94,6 +95,48 @@ export default function Dashboard() {
   const [stockSearchLoading, setStockSearchLoading] = useState(false)
   const [stockDropdownOpen, setStockDropdownOpen] = useState(false)
   const stockSearchRef = useRef<HTMLDivElement | null>(null)
+
+  // ── Supabase 인증 ─────────────────────────────────────────────
+  const [user, setUser] = useState<User | null>(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [historySaved, setHistorySaved] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setShowHistory(false)
+  }
+
+  // ── 히스토리 저장 ─────────────────────────────────────────────
+  const saveHistory = async (metrics: any, insightText: string, dart: any) => {
+    if (!user) return
+    try {
+      await supabase.from('histories').insert({
+        user_id: user.id,
+        role: currentRole,
+        company_name: companyName || dart?.corp_name || '',
+        ticker: ticker || '',
+        insight: insightText,
+        metrics,
+        dart_summary: dart?.summary || '',
+      })
+      setHistorySaved(true)
+      setTimeout(() => setHistorySaved(false), 3000)
+    } catch (e) {
+      console.error('[히스토리 저장 오류]', e)
+    }
+  }
 
   useEffect(() => {
     if (!analyzeResult) return
@@ -143,7 +186,10 @@ export default function Dashboard() {
     setInsightLoading(true)
     try {
       const result = await generateInsight(metrics, role, dt, extraData, extraContext)
-      setInsight(result.insight || '')
+      const insightText = result.insight || ''
+      setInsight(insightText)
+      // 인사이트 완성 후 히스토리 자동 저장
+      if (user) await saveHistory(metrics, insightText, dartData)
     } catch (e) { console.error(e) }
     setInsightLoading(false)
   }
@@ -221,6 +267,16 @@ export default function Dashboard() {
       setWarnings([])
     } catch (e) { console.error(e); setDartLoading(false) }
     setLoading(false)
+  }
+
+  // 히스토리에서 불러오기
+  const handleHistorySelect = (history: any) => {
+    setCompanyName(history.company_name)
+    setTicker(history.ticker)
+    setInsight(history.insight)
+    setAnalyzeResult({ metrics: history.metrics })
+    setShowHistory(false)
+    navigate(`/dashboard/${history.role}`)
   }
 
   const renderDashboard = () => {
@@ -361,6 +417,14 @@ export default function Dashboard() {
           <p className="text-sm text-[#4648d4] mt-1">KRX Live Data</p>
         </div>
       )}
+
+      {/* 히스토리 패널 */}
+      {user && showHistory && (
+        <div>
+          <p className="text-sm font-bold text-[#1b1b23] uppercase tracking-widest mb-3" style={{ fontFamily: 'Manrope' }}>조회 히스토리</p>
+          <HistoryPanel onSelect={handleHistorySelect} currentRole={currentRole} />
+        </div>
+      )}
     </div>
   )
 
@@ -383,9 +447,7 @@ export default function Dashboard() {
 
     return (
       <div id="pdf-report-content" style={{ width: 794, background: '#fff', color: '#1b1b23', fontFamily: 'sans-serif', padding: 0 }}>
-
-        {/* 헤더 */}
-        <div style={{ background: '#1b1b23', color: '#fff', padding: '32px 40px 24px', marginBottom: 0 }}>
+        <div style={{ background: '#1b1b23', color: '#fff', padding: '32px 40px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: 10, color: '#a0a0c0', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>Prism Investment Report</div>
@@ -400,7 +462,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 경보 배너 */}
         {warnings.length > 0 && (
           <div style={{ background: '#FEF3C7', borderLeft: '4px solid #F59E0B', padding: '10px 40px', fontSize: 11, color: '#92400E' }}>
             ⚠️ 데이터 품질 경고: {warnings.map((w: any) => w.msg).join(' · ')}
@@ -408,8 +469,6 @@ export default function Dashboard() {
         )}
 
         <div style={{ padding: '28px 40px' }}>
-
-          {/* AI Executive Summary */}
           {R.section('AI Executive Summary', (
             <div style={{ background: '#f5f2fe', borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${accentColor}` }}>
               <div style={{ fontSize: 10, color: accentColor, fontWeight: 700, marginBottom: 6 }}>POWERED BY CLAUDE SONNET · SKILLS.MD ENGINE</div>
@@ -417,10 +476,8 @@ export default function Dashboard() {
             </div>
           ), accentColor)}
 
-          {/* 직군별 핵심 KPI */}
           {R.section('핵심 지표', (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-              {/* 수익률 */}
               {m?.returns?.simple_return != null && R.kpi('단순 수익률', fmt.pct(m.returns.simple_return), '1년', m.returns.simple_return > 0 ? '#E84040' : '#3B82F6')}
               {m?.returns?.cagr != null && R.kpi('CAGR', fmt.pct(m.returns.cagr), '연평균', m.returns.cagr > 0 ? '#E84040' : '#3B82F6')}
               {m?.risk?.mdd != null && R.kpi('MDD', fmt.pct(m.risk.mdd), '최대낙폭', '#3B82F6')}
@@ -436,199 +493,109 @@ export default function Dashboard() {
             </div>
           ), accentColor)}
 
-          {/* DART 재무제표 */}
-          {financial?.year && (
-            R.section(`재무제표 요약 (${financial.year}년 DART 사업보고서)`, (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                {/* 손익계산서 */}
-                <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#767586', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>손익계산서 (IS)</div>
-                  {[
-                    { label: '매출액', data: revenue },
-                    { label: '영업이익', data: opIncome },
-                    { label: '당기순이익', data: netIncome },
-                  ].filter(r => r.data).map(({ label, data }) => {
-                    const yoy = data.current && data.prior && data.prior !== 0
-                      ? ((data.current - data.prior) / Math.abs(data.prior) * 100) : null
-                    return (
-                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #f0edf8' }}>
-                        <span style={{ fontSize: 11, color: '#767586' }}>{label}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {yoy !== null && <span style={{ fontSize: 10, fontWeight: 700, color: yoy >= 0 ? '#10B981' : '#E84040' }}>{yoy >= 0 ? '▲' : '▼'}{Math.abs(yoy).toFixed(1)}%</span>}
-                          <span style={{ fontSize: 12, fontWeight: 700 }}>{data.current_fmt}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                {/* 재무상태표 */}
-                <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#767586', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>재무상태표 (BS)</div>
-                  {[
-                    { label: '자산총계', data: totalAssets },
-                    { label: '부채총계', data: totalLiab },
-                    { label: '자본총계', data: totalEquity },
-                    { label: '유동자산', data: currentAsset },
-                    { label: '유동부채', data: currentLiab },
-                  ].filter(r => r.data).map(({ label, data }) => (
+          {financial?.year && R.section(`재무제표 요약 (${financial.year}년 DART 사업보고서)`, (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#767586', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>손익계산서 (IS)</div>
+                {[{ label: '매출액', data: revenue }, { label: '영업이익', data: opIncome }, { label: '당기순이익', data: netIncome }].filter(r => r.data).map(({ label, data }) => {
+                  const yoy = data.current && data.prior && data.prior !== 0 ? ((data.current - data.prior) / Math.abs(data.prior) * 100) : null
+                  return (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #f0edf8' }}>
                       <span style={{ fontSize: 11, color: '#767586' }}>{label}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700 }}>{data.current_fmt}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {yoy !== null && <span style={{ fontSize: 10, fontWeight: 700, color: yoy >= 0 ? '#10B981' : '#E84040' }}>{yoy >= 0 ? '▲' : '▼'}{Math.abs(yoy).toFixed(1)}%</span>}
+                        <span style={{ fontSize: 12, fontWeight: 700 }}>{data.current_fmt}</span>
+                      </div>
                     </div>
-                  ))}
-                </div>
-                {/* 현금흐름표 */}
-                {financial.cf && financial.cf.length > 0 && (
-                  <div style={{ gridColumn: '1 / -1', border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#767586', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>현금흐름표 (CF)</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                      {financial.cf.slice(0, 3).map((item: any) => (
-                        <div key={item.account} style={{ background: '#f8f7fc', borderRadius: 6, padding: '8px 10px' }}>
-                          <div style={{ fontSize: 10, color: '#767586', marginBottom: 3 }}>{item.account}</div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: (item.current ?? 0) >= 0 ? '#10B981' : '#E84040' }}>{item.current_fmt}</div>
-                          {item.prior_fmt && item.prior_fmt !== '-' && <div style={{ fontSize: 10, color: '#a0a0b0' }}>전년 {item.prior_fmt}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  )
+                })}
               </div>
-            ), accentColor)
-          )}
+              <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#767586', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>재무상태표 (BS)</div>
+                {[{ label: '자산총계', data: totalAssets }, { label: '부채총계', data: totalLiab }, { label: '자본총계', data: totalEquity }, { label: '유동자산', data: currentAsset }, { label: '유동부채', data: currentLiab }].filter(r => r.data).map(({ label, data }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #f0edf8' }}>
+                    <span style={{ fontSize: 11, color: '#767586' }}>{label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700 }}>{data.current_fmt}</span>
+                  </div>
+                ))}
+              </div>
+              {financial.cf && financial.cf.length > 0 && (
+                <div style={{ gridColumn: '1 / -1', border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#767586', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>현금흐름표 (CF)</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    {financial.cf.slice(0, 3).map((item: any) => (
+                      <div key={item.account} style={{ background: '#f8f7fc', borderRadius: 6, padding: '8px 10px' }}>
+                        <div style={{ fontSize: 10, color: '#767586', marginBottom: 3 }}>{item.account}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: (item.current ?? 0) >= 0 ? '#10B981' : '#E84040' }}>{item.current_fmt}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ), accentColor)}
 
-          {/* 알트만 Z-Score (Accountant) */}
           {currentRole === 'financial' && (() => {
             if (!totalAssets?.current || !totalLiab?.current || !opIncome?.current || !revenue?.current || !totalEquity?.current || !currentAsset?.current || !currentLiab?.current) return null
             const wc = currentAsset.current - currentLiab.current
             const ta = totalAssets.current
-            const z = (1.2 * (wc / ta) + 1.4 * (totalEquity.current / ta) + 3.3 * (opIncome.current / ta) + 0.6 * (totalEquity.current / totalLiab.current) + 1.0 * (revenue.current / ta))
-            const zRound = Math.round(z * 100) / 100
-            const zColor = zRound >= 2.99 ? '#10B981' : zRound >= 1.81 ? '#F59E0B' : '#E84040'
-            const zLabel = zRound >= 2.99 ? '안전' : zRound >= 1.81 ? '주의 (회색지대)' : '위험'
+            const z = Math.round((1.2*(wc/ta) + 1.4*(totalEquity.current/ta) + 3.3*(opIncome.current/ta) + 0.6*(totalEquity.current/totalLiab.current) + 1.0*(revenue.current/ta)) * 100) / 100
+            const zColor = z >= 2.99 ? '#10B981' : z >= 1.81 ? '#F59E0B' : '#E84040'
             return R.section('부도 조기경보 — 알트만 Z-Score', (
               <div style={{ display: 'flex', alignItems: 'center', gap: 20, background: '#f8f7fc', borderRadius: 10, padding: '16px 20px' }}>
-                <div>
-                  <div style={{ fontSize: 36, fontWeight: 900, color: zColor }}>{zRound}</div>
-                  <div style={{ fontSize: 11, color: '#767586' }}>Z-Score</div>
-                </div>
+                <div><div style={{ fontSize: 36, fontWeight: 900, color: zColor }}>{z}</div><div style={{ fontSize: 11, color: '#767586' }}>Z-Score</div></div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: zColor, marginBottom: 6 }}>{zLabel}</div>
-                  <div style={{ display: 'flex', gap: 12, fontSize: 10, color: '#767586' }}>
-                    <span>● 2.99↑ 안전</span>
-                    <span>● 1.81~2.99 주의</span>
-                    <span>● 1.81↓ 위험</span>
-                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: zColor, marginBottom: 6 }}>{z >= 2.99 ? '안전' : z >= 1.81 ? '주의' : '위험'}</div>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 10, color: '#767586' }}><span>● 2.99↑ 안전</span><span>● 1.81~2.99 주의</span><span>● 1.81↓ 위험</span></div>
                 </div>
               </div>
             ), accentColor)
           })()}
 
-          {/* 밸류에이션 (Analyst) */}
-          {currentRole === 'analyst' && (m?.valuation?.per != null || m?.valuation?.pbr != null) && (
-            R.section('밸류에이션 포지션', (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                {m.valuation.per != null && (
-                  <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
-                    <div style={{ fontSize: 10, color: '#767586', marginBottom: 4 }}>PER</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: m.valuation.per <= 15 ? '#4648d4' : '#E84040' }}>{m.valuation.per.toFixed(1)}x</div>
-                    <div style={{ fontSize: 10, color: '#a0a0b0' }}>{m.valuation.per <= 8 ? '저평가' : m.valuation.per <= 15 ? '적정' : m.valuation.per <= 25 ? '주의' : '고평가'}</div>
-                  </div>
-                )}
-                {m.valuation.pbr != null && (
-                  <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
-                    <div style={{ fontSize: 10, color: '#767586', marginBottom: 4 }}>PBR</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: m.valuation.pbr <= 2 ? '#4648d4' : '#E84040' }}>{m.valuation.pbr.toFixed(2)}x</div>
-                    <div style={{ fontSize: 10, color: '#a0a0b0' }}>{m.valuation.pbr <= 1 ? '저평가' : m.valuation.pbr <= 2 ? '적정' : '고평가'}</div>
-                  </div>
-                )}
-              </div>
-            ), accentColor)
-          )}
-
-          {/* 배당 정보 */}
-          {dartData?.dividends?.year && (
-            R.section(`배당 정보 (${dartData.dividends.year}년)`, (
-              <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
-                {[
-                  { label: '주당 현금배당금', value: dartData.dividends.cash_per_share ? `${Number(String(dartData.dividends.cash_per_share).replace(/,/g, '')).toLocaleString()}원` : null },
-                  { label: '배당수익률', value: dartData.dividends.yield_rate ? `${dartData.dividends.yield_rate}%` : null },
-                  { label: '배당성향', value: dartData.dividends.payout_ratio ? `${dartData.dividends.payout_ratio}%` : null },
-                ].filter(r => r.value).map(({ label, value }) => (
-                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f0edf8' }}>
-                    <span style={{ fontSize: 11, color: '#767586' }}>{label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700 }}>{value}</span>
-                  </div>
-                ))}
-              </div>
-            ), accentColor)
-          )}
-
-          {/* 대주주 현황 */}
-          {dartData?.shareholders && dartData.shareholders.length > 0 && (
-            R.section('대주주 현황', (
-              <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
-                {dartData.pe_detected && (
-                  <div style={{ background: '#FEE2E2', borderRadius: 6, padding: '6px 10px', marginBottom: 8, fontSize: 11, color: '#DC2626', fontWeight: 700 }}>
-                    ⚠️ PE 대주주 감지 — 엑시트 리스크 주의: {dartData.pe_keywords?.join(', ')}
-                  </div>
-                )}
-                {dartData.shareholders.slice(0, 5).map((sh: any, i: number) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f0edf8' }}>
-                    <span style={{ fontSize: 11, color: '#1b1b23' }}>{sh.name} {sh.relation && <span style={{ color: '#767586', fontSize: 10 }}>({sh.relation})</span>}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#4648d4' }}>{sh.ratio}%</span>
-                  </div>
-                ))}
-              </div>
-            ), accentColor)
-          )}
-
-          {/* 임원 현황 */}
-          {dartData?.executives && dartData.executives.length > 0 && (
-            R.section('임원 현황', (
-              <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4 }}>
-                  {dartData.executives.slice(0, 6).map((ex: any, i: number) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px', background: i % 2 === 0 ? '#faf9fe' : '#fff', borderRadius: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: '#1b1b23' }}>{ex.name}</span>
-                      <span style={{ fontSize: 10, color: '#767586' }}>{ex.title}</span>
-                    </div>
-                  ))}
+          {dartData?.dividends?.year && R.section(`배당 정보 (${dartData.dividends.year}년)`, (
+            <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
+              {[
+                { label: '주당 현금배당금', value: dartData.dividends.cash_per_share ? `${Number(String(dartData.dividends.cash_per_share).replace(/,/g, '')).toLocaleString()}원` : null },
+                { label: '배당수익률', value: dartData.dividends.yield_rate ? `${dartData.dividends.yield_rate}%` : null },
+                { label: '배당성향', value: dartData.dividends.payout_ratio ? `${dartData.dividends.payout_ratio}%` : null },
+              ].filter(r => r.value).map(({ label, value }) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f0edf8' }}>
+                  <span style={{ fontSize: 11, color: '#767586' }}>{label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{value}</span>
                 </div>
-              </div>
-            ), accentColor)
-          )}
+              ))}
+            </div>
+          ), accentColor)}
 
-          {/* DART 공시 분석 */}
-          {dartData?.success && dartData?.items && (
-            R.section('DART 공시 분석', (
-              <div>
-                {dartData.summary && (
-                  <div style={{ background: '#f8f7fc', borderRadius: 8, padding: '10px 12px', marginBottom: 10, fontSize: 12, color: '#1b1b23', lineHeight: 1.6 }}>
-                    {dartData.summary}
+          {dartData?.shareholders && dartData.shareholders.length > 0 && R.section('대주주 현황', (
+            <div style={{ border: '1px solid #e8e5f5', borderRadius: 8, padding: 12 }}>
+              {dartData.pe_detected && <div style={{ background: '#FEE2E2', borderRadius: 6, padding: '6px 10px', marginBottom: 8, fontSize: 11, color: '#DC2626', fontWeight: 700 }}>⚠️ PE 대주주 감지: {dartData.pe_keywords?.join(', ')}</div>}
+              {dartData.shareholders.slice(0, 5).map((sh: any, i: number) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f0edf8' }}>
+                  <span style={{ fontSize: 11 }}>{sh.name}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#4648d4' }}>{sh.ratio}%</span>
+                </div>
+              ))}
+            </div>
+          ), accentColor)}
+
+          {dartData?.success && dartData?.items && R.section('DART 공시 분석', (
+            <div>
+              {dartData.summary && <div style={{ background: '#f8f7fc', borderRadius: 8, padding: '10px 12px', marginBottom: 10, fontSize: 12, lineHeight: 1.6 }}>{dartData.summary}</div>}
+              {dartData.items.map((item: any, i: number) => {
+                const c = ({ '호재': '#E84040', '악재': '#3B82F6', '중립': '#767586' } as any)[item.sentiment] || '#767586'
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid #f0edf8' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: c, minWidth: 28 }}>{item.sentiment}</span>
+                    <div><div style={{ fontSize: 11, fontWeight: 600 }}>{item.title}</div><div style={{ fontSize: 10, color: '#767586' }}>{item.reason} · {item.date}</div></div>
                   </div>
-                )}
-                {dartData.items.map((item: any, i: number) => {
-                  const colors: any = { '호재': '#E84040', '악재': '#3B82F6', '중립': '#767586' }
-                  const c = colors[item.sentiment] || '#767586'
-                  return (
-                    <div key={i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid #f0edf8', alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: c, minWidth: 28 }}>{item.sentiment}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#1b1b23' }}>{item.title}</div>
-                        <div style={{ fontSize: 10, color: '#767586' }}>{item.reason} · {item.date}</div>
-                      </div>
-                    </div>
-                  )
-                })}
-                {dartData.action && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: '#4648d4', fontWeight: 600 }}>💡 권고: {dartData.action}</div>
-                )}
-              </div>
-            ), accentColor)
-          )}
+                )
+              })}
+              {dartData.action && <div style={{ marginTop: 8, fontSize: 11, color: '#4648d4', fontWeight: 600 }}>💡 권고: {dartData.action}</div>}
+            </div>
+          ), accentColor)}
 
-          {/* 푸터 */}
-          <div style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid #e8e5f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid #e8e5f5', display: 'flex', justifyContent: 'space-between' }}>
             <div style={{ fontSize: 10, color: '#767586' }}>Generated by Prism · AI Investment Analysis Platform · Skills.md v0.1</div>
             <div style={{ fontSize: 10, color: '#767586' }}>본 리포트는 AI 분석 결과이며 투자 권유가 아닙니다.</div>
           </div>
@@ -639,6 +606,17 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#fcf8ff] text-[#1b1b23]">
+
+      {/* 로그인 모달 */}
+      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+
+      {/* 히스토리 저장 토스트 */}
+      {historySaved && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#1b1b23] text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg">
+          ✅ 조회 기록이 저장됐어요
+        </div>
+      )}
+
       {mobileSearchOpen && (
         <div className="fixed inset-0 z-[60] bg-white flex flex-col md:hidden">
           <div className="flex items-center gap-3 px-4 h-14 border-b border-[#c7c4d7] flex-shrink-0">
@@ -654,6 +632,7 @@ export default function Dashboard() {
           <button onClick={() => navigate('/')}><img src="/logo.png" alt="Prism" className="h-8" /></button>
           <div className="flex items-center gap-2 md:gap-3">
             <button onClick={() => setMobileSearchOpen(true)} className="md:hidden material-symbols-outlined text-[#4648d4]">search</button>
+
             <div className="relative">
               <button onClick={() => { setShowNotifications(v => !v); setShowSettings(false) }} className="material-symbols-outlined text-[#464554] hover:text-[#1b1b23] transition-colors">notifications</button>
               {showNotifications && (
@@ -668,6 +647,7 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+
             {analyzeResult && (
               <button onClick={handleExportPdf} disabled={exporting}
                 className="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-[#4648d4] text-white text-xs font-bold rounded-lg hover:bg-[#2f2ebe] transition-all disabled:opacity-50"
@@ -676,6 +656,7 @@ export default function Dashboard() {
                 {exporting ? '생성 중...' : 'PDF'}
               </button>
             )}
+
             <div className="relative">
               <button onClick={() => { setShowSettings(v => !v); setShowNotifications(false) }} className="material-symbols-outlined text-[#464554] hover:text-[#1b1b23] transition-colors">settings</button>
               {showSettings && (
@@ -692,9 +673,40 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            <button className="material-symbols-outlined text-[#4648d4]">account_circle</button>
+
+            {/* 계정 버튼 */}
+            {user ? (
+              <div className="relative">
+                <button onClick={() => setShowHistory(v => !v)} className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-[#f5f2fe] transition-all">
+                  <span className="material-symbols-outlined text-[#4648d4]">account_circle</span>
+                  <span className="text-xs text-[#4648d4] font-bold hidden sm:inline" style={{ fontFamily: 'Manrope' }}>
+                    {user.email?.split('@')[0]}
+                  </span>
+                </button>
+                {showHistory && (
+                  <div className="absolute right-0 top-10 w-56 bg-white border border-[#c7c4d7] rounded-xl shadow-xl z-50 p-3">
+                    <p className="text-xs text-[#767586] mb-2 truncate">{user.email}</p>
+                    <button onClick={() => { setShowHistory(false); navigate(`/dashboard/${currentRole}`) }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#f5f2fe] text-xs text-[#1b1b23] transition-all mb-1">
+                      <span className="material-symbols-outlined text-sm">history</span> 조회 히스토리
+                    </button>
+                    <button onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-red-50 text-xs text-[#E84040] transition-all">
+                      <span className="material-symbols-outlined text-sm">logout</span> 로그아웃
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button onClick={() => setShowAuthModal(true)}
+                className="flex items-center gap-1 px-3 py-1.5 border border-[#4648d4] text-[#4648d4] text-xs font-bold rounded-lg hover:bg-[#4648d4] hover:text-white transition-all"
+                style={{ fontFamily: 'Manrope' }}>
+                로그인
+              </button>
+            )}
           </div>
         </div>
+
         <div className="flex items-center border-t border-[#c7c4d7]/50 overflow-x-auto [&::-webkit-scrollbar]:hidden">
           <div className="flex items-center px-4 md:px-6 flex-shrink-0 w-full">
             {(Object.entries(ROLE_CONFIG) as [Role, typeof ROLE_CONFIG[Role]][]).map(([r, c]) => (
@@ -722,19 +734,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <label className="hidden md:flex fixed bottom-8 right-8 w-14 h-14 bg-[#4648d4] rounded-full shadow-2xl shadow-[#4648d4]/40 items-center justify-center text-white hover:scale-110 active:scale-95 transition-all z-50 cursor-pointer">
-        <span className="material-symbols-outlined text-3xl">add</span>
-        <input type="file" accept=".csv,.xlsx,.xls,.json,.pdf" onChange={handleFile} className="hidden" />
-      </label>
-
-      <button onClick={() => setMobileSearchOpen(true)} className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-[#4648d4] rounded-full shadow-2xl shadow-[#4648d4]/40 flex items-center justify-center text-white active:scale-95 transition-all z-50">
-        <span className="material-symbols-outlined text-2xl">search</span>
-      </button>
-
-      {/* PDF 리포트 (숨김 영역) */}
-      <div className="fixed left-[-9999px] top-0">
-        {renderPdfReport()}
-      </div>
+      <div className="fixed left-[-9999px] top-0">{renderPdfReport()}</div>
     </div>
   )
 }
