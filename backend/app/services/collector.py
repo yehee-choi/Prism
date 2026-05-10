@@ -239,12 +239,11 @@ def collect_all(ticker: str, period_days: int = 365) -> dict:
 def get_kospi_returns(start: str, end: str) -> list:
     try:
         df = stock.get_index_ohlcv(start, end, "1001")
+        print(f"[코스피] shape={df.shape}, empty={df.empty}")
         if df.empty:
             return []
-        # reset_index 없이 바로 컬럼 접근
         print(f"[코스피 컬럼] {df.columns.tolist()}")
-        close_col = "종가" if "종가" in df.columns else df.columns[3]
-        return df[close_col].pct_change().dropna().tolist()
+        return df["종가"].pct_change().dropna().tolist()
     except Exception as e:
         print(f"[코스피 수익률 오류] {e}")
         return []
