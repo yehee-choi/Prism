@@ -238,7 +238,7 @@ def collect_all(ticker: str, period_days: int = 365) -> dict:
 
 def get_kospi_returns(start: str, end: str) -> list:
     try:
-        df = stock.get_index_ohlcv(start, end, "1001")
+        df = stock.get_index_ohlcv(start, end, "1001", name_display=False)
         print(f"[코스피] shape={df.shape}, empty={df.empty}")
         if df.empty:
             return []
